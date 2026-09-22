@@ -1,0 +1,6 @@
+import { Layers3, ShieldCheck } from 'lucide-react';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { db, initDb } from '@/lib/auth';
+export const dynamic = 'force-dynamic';
+export default async function AdminPage() { await initDb(); const sid = (await cookies()).get('deepup_session')?.value; const user = sid ? await db().prepare('SELECT users.role FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.id = ? AND sessions.expires_at > ?').bind(sid, new Date().toISOString()).first<{role:string}>() : null; if (user?.role !== 'admin') redirect('/login'); return <main className="min-h-screen bg-black px-6 py-16 text-white"><div className="mx-auto max-w-4xl"><a href="/" className="flex items-center gap-2 font-black"><span className="grid size-9 place-items-center rounded-lg bg-[#275cff]"><Layers3 className="size-5" /></span>DeepUp</a><div className="mt-16 rounded-3xl border border-white/10 bg-[#0b0b0c] p-10"><ShieldCheck className="size-10 text-[#6f91ff]" /><p className="mt-6 text-xs font-black tracking-[.18em] text-[#6f91ff]">ADMIN CONSOLE</p><h1 className="mt-3 text-4xl font-black">관리자 페이지</h1><p className="mt-4 text-white/45">회원 및 서비스 콘텐츠 관리 화면입니다. 현재는 캡스톤 발표용 데모입니다.</p></div></div></main>; }
