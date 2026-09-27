@@ -1,7 +1,15 @@
 import { env } from 'cloudflare:workers';
 
 type DB = D1Database;
-export const db = () => (env as unknown as { DB: DB }).DB;
+type RuntimeEnv = {
+  DB: DB;
+  ADMIN_USERNAME?: string;
+  ADMIN_PASSWORD?: string;
+  ADMIN_SETUP_TOKEN?: string;
+};
+
+export const runtimeEnv = () => env as unknown as RuntimeEnv;
+export const db = () => runtimeEnv().DB;
 
 const enc = new TextEncoder();
 const hex = (bytes: Uint8Array) => Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -21,14 +29,22 @@ export async function initDb() {
   ]);
 }
 
-export async function ensureAdmin() {
+export async function bootstrapAdmin() {
   await initDb();
-  const found = await db().prepare('SELECT id FROM users WHERE username = ?').bind('1234').first();
-  if (!found) {
-    const salt = crypto.randomUUID();
-    const hash = await hashPassword('1234', salt);
-    await db().prepare('INSERT INTO users (id, username, password_hash, salt, role) VALUES (?, ?, ?, ?, ?)').bind(crypto.randomUUID(), '1234', hash, salt, 'admin').run();
-  }
+  const { ADMIN_USERNAME, ADMIN_PASSWORD } = runtimeEnv();
+  if (!ADMIN_USERNAME || !ADMIN_PASSWORD) throw new Error('관리자 환경변수가 설정되지 않았습니다.');
+  if (ADMIN_USERNAME.length < 3 || ADMIN_PASSWORD.length < 12) throw new Error('관리자 아이디는 3자 이상, 비밀번호는 12자 이상이어야 합니다.');
+
+  const existingAdmin = await db().prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1").first();
+  if (existingAdmin) return { created: false };
+
+  const existingUser = await db().prepare('SELECT id FROM users WHERE username = ?').bind(ADMIN_USERNAME).first();
+  if (existingUser) throw new Error('같은 아이디의 일반 회원이 이미 존재합니다.');
+
+  const salt = crypto.randomUUID();
+  const hash = await hashPassword(ADMIN_PASSWORD, salt);
+  await db().prepare('INSERT INTO users (id, username, password_hash, salt, role) VALUES (?, ?, ?, ?, ?)').bind(crypto.randomUUID(), ADMIN_USERNAME, hash, salt, 'admin').run();
+  return { created: true };
 }
 
 export const sessionCookie = (id: string) => `deepup_session=${id}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`;

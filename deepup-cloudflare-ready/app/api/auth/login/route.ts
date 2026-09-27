@@ -1,7 +1,7 @@
-import { db, ensureAdmin, hashPassword, sessionCookie } from '@/lib/auth';
+import { db, hashPassword, initDb, sessionCookie } from '@/lib/auth';
 
 export async function POST(request: Request) {
-  await ensureAdmin();
+  await initDb();
   const { username, password } = await request.json() as { username?: string; password?: string };
   const user = await db().prepare('SELECT id, username, password_hash, salt, role FROM users WHERE username = ?').bind(username || '').first<{ id: string; username: string; password_hash: string; salt: string; role: string }>();
   if (!user || await hashPassword(password || '', user.salt) !== user.password_hash) return Response.json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' }, { status: 401 });

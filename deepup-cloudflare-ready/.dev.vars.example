@@ -1,0 +1,3 @@
+ADMIN_USERNAME=change-this-admin-id
+ADMIN_PASSWORD=change-this-to-a-strong-password
+ADMIN_SETUP_TOKEN=change-this-to-a-long-random-token
