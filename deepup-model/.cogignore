@@ -1,0 +1,10 @@
+.git
+.github
+__pycache__
+*.pyc
+*.ipynb
+.ipynb_checkpoints
+test-inputs
+results
+outputs
+.DS_Store

@@ -1,0 +1,22 @@
+build:
+  gpu: true
+  cuda: "11.8"
+  python_version: "3.10"
+  python_requirements: requirements.txt
+  system_packages:
+    - "ffmpeg"
+    - "git"
+    - "wget"
+    - "libgl1"
+    - "libglib2.0-0"
+  run:
+    - "git clone --depth 1 https://github.com/XPixelGroup/BasicSR.git /src/BasicSR"
+    - "pip install -e /src/BasicSR --no-deps"
+    - "git clone --depth 1 https://github.com/xinntao/Real-ESRGAN.git /src/Real-ESRGAN"
+    - "pip install -e /src/Real-ESRGAN --no-deps"
+    - "mkdir -p /src/weights"
+    - "wget -q -O /src/weights/RealESRGAN_x4plus.pth https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth"
+    - "python -c \"from transformers import AutoImageProcessor, AutoModelForDepthEstimation; m='depth-anything/Depth-Anything-V2-Small-hf'; AutoImageProcessor.from_pretrained(m); AutoModelForDepthEstimation.from_pretrained(m)\""
+
+image: "r8.im/yudaag/realesrgan_upscailing"
+predict: "predict.py:Predictor"
