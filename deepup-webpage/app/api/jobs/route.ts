@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   if (!user && body.mediaType === 'video') return Response.json({ error: '영상 개선은 로그인 후 이용할 수 있습니다.' }, { status: 401 });
   const id = crypto.randomUUID();
   try {
-    const prediction = await startPrediction(body.objectKey, user ? 4 : 2);
+    const prediction = await startPrediction(body.objectKey, user ? 4 : 2, new URL(request.url).origin);
     await db().prepare(`INSERT INTO processing_jobs
       (id, user_id, guest_token, media_type, original_name, original_r2_key, replicate_prediction_id, status, progress, file_size, expires_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'processing', 5, ?, ?)`)
