@@ -1,5 +1,6 @@
-import { ArrowRight, BarChart3, ImageUp, Layers3, ScanSearch, Sparkles } from 'lucide-react';
+import { ArrowRight, BarChart3, Layers3, ScanSearch, Sparkles } from 'lucide-react';
 import { AccountMenu } from '@/components/account-menu';
+import { EnhancementWorkspace } from '@/components/enhancement-workspace';
 
 export default function Home() {
   return (
@@ -31,14 +32,7 @@ export default function Home() {
             </h1>
             <p className="mt-7 max-w-xl text-base leading-7 text-white/58 lg:text-lg">이미지와 영상의 깊이 정보를 분석해 중요한 영역은 더 선명하게, 배경은 더 자연스럽게 개선합니다.</p>
 
-            <div className="mt-10 max-w-[620px] rounded-2xl border-2 border-[#5477ff] bg-[#14255d]/75 p-7 shadow-[0_0_55px_rgba(39,92,255,.18)] lg:p-9">
-              <div className="flex flex-col items-center text-center">
-                <ImageUp className="size-10 text-white/90" strokeWidth={1.6} />
-                <div className="mt-5 rounded-full bg-[#3867ff] px-7 py-3.5 text-sm font-extrabold shadow-[0_10px_30px_rgba(39,92,255,.35)]">이미지 또는 영상 업로드</div>
-                <p className="mt-5 text-lg font-bold">또는 여기에 끌어다 놓으세요</p>
-                <p className="mt-3 text-xs leading-5 text-white/45">JPG, PNG, WEBP, MP4, MOV · 최대 500MB</p>
-              </div>
-            </div>
+            <div className="mt-10"><EnhancementWorkspace /></div>
           </div>
 
           <div className="lg:pt-16">

@@ -1,7 +1,8 @@
-import { Download, Layers3, RefreshCw, Trash2 } from 'lucide-react';
+import { Layers3 } from 'lucide-react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { currentUserFromCookie, db } from '@/lib/auth';
+import { JobActions } from '@/components/job-actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,15 +37,21 @@ function dateText(value: string) {
   return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Seoul' }).format(new Date(value));
 }
 
-export default async function MyPage() {
+export default async function MyPage({ searchParams }: { searchParams: Promise<{ media?: string; q?: string; sort?: string }> }) {
   const cookieStore = await cookies();
   const cookie = cookieStore.getAll().map(({ name, value }) => `${name}=${value}`).join('; ');
   const user = await currentUserFromCookie(cookie);
   if (!user) redirect('/login');
 
+  const filters = await searchParams;
   let jobs: Job[] = [];
   try {
-    const result = await db().prepare('SELECT * FROM processing_jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT 50').bind(user.id).all<Job>();
+    let sql = 'SELECT * FROM processing_jobs WHERE user_id = ?';
+    const values: unknown[] = [user.id];
+    if (filters.media === 'image' || filters.media === 'video') { sql += ' AND media_type = ?'; values.push(filters.media); }
+    if (filters.q?.trim()) { sql += ' AND original_name LIKE ?'; values.push(`%${filters.q.trim()}%`); }
+    sql += filters.sort === 'oldest' ? ' ORDER BY created_at ASC LIMIT 50' : ' ORDER BY created_at DESC LIMIT 50';
+    const result = await db().prepare(sql).bind(...values).all<Job>();
     jobs = result.results;
   } catch {
     // 첫 배포에서 0002 마이그레이션을 적용하기 전에도 빈 화면을 안전하게 표시한다.
@@ -74,14 +81,14 @@ export default async function MyPage() {
       </section>
 
       <section className="mt-16">
-        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center"><h2 className="text-2xl font-black">처리 이력</h2><div className="flex flex-wrap gap-2 text-xs font-bold"><span className="rounded-full border border-[#5278ff] bg-[#12204b] px-5 py-2.5 text-[#9bb0ff]">전체</span><span className="rounded-full border border-white/15 px-5 py-2.5">이미지</span><span className="rounded-full border border-white/15 px-5 py-2.5">영상</span><span className="rounded-full border border-white/15 px-5 py-2.5">최신순</span></div></div>
+        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center"><h2 className="text-2xl font-black">처리 이력</h2><form className="flex flex-wrap gap-2 text-xs font-bold"><select name="media" defaultValue={filters.media || ''} className="rounded-full border border-white/15 bg-black px-4 py-2.5"><option value="">전체</option><option value="image">이미지</option><option value="video">영상</option></select><select name="sort" defaultValue={filters.sort || 'latest'} className="rounded-full border border-white/15 bg-black px-4 py-2.5"><option value="latest">최신순</option><option value="oldest">오래된순</option></select><input name="q" defaultValue={filters.q || ''} placeholder="파일명 검색" className="rounded-full border border-white/15 bg-black px-4 py-2.5 outline-none focus:border-[#5278ff]" /><button className="rounded-full bg-[#3867ff] px-5 py-2.5">검색</button></form></div>
 
         <div className="mt-6 space-y-3">
           {jobs.length === 0 && <div className="rounded-2xl border border-dashed border-white/15 px-6 py-20 text-center"><p className="font-bold">아직 처리 이력이 없습니다.</p><a href="/#service" className="mt-5 inline-block rounded-full bg-[#3867ff] px-6 py-3 text-sm font-bold">첫 화질 개선 시작하기</a></div>}
           {jobs.map((job) => <article key={job.id} className="grid gap-5 rounded-2xl border border-white/10 bg-[#0b0b0d] p-5 md:grid-cols-[minmax(0,1fr)_170px_170px] md:items-center">
             <div className="min-w-0"><div className="flex items-center gap-2"><span className="rounded-full border border-[#4565c5] bg-[#111c3e] px-2.5 py-1 text-[10px] font-bold text-[#8fa8ff]">{job.category}</span><span className="text-[10px] text-white/40">{job.media_type === 'image' ? '이미지' : '영상'}</span></div><h3 className="mt-3 truncate font-extrabold">{job.original_name}</h3><p className="mt-2 text-xs text-white/38">{resolution(job)}{job.duration_seconds ? ` · ${job.duration_seconds}초` : ''}</p></div>
             <div><p className="text-[10px] text-white/35">처리 일시</p><p className="mt-2 text-xs font-bold">{dateText(job.created_at)}</p><p className={`mt-3 text-xs font-black ${job.status === 'succeeded' ? 'text-emerald-400' : job.status === 'failed' ? 'text-red-400' : 'text-[#6f91ff]'}`}>{statusLabel[job.status]}{job.status === 'processing' ? ` ${job.progress}%` : ''}</p>{job.status === 'processing' && <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-[#3867ff]" style={{ width: `${job.progress}%` }} /></div>}</div>
-            <div className="flex flex-wrap justify-start gap-2 md:justify-end">{job.status === 'succeeded' && <><a href={`/compare/${job.id}`} className="rounded-full bg-[#3867ff] px-4 py-2.5 text-xs font-bold">결과 비교</a><a href={`/api/jobs/${job.id}/download`} className="rounded-full border border-white/15 p-2.5" aria-label="다운로드"><Download className="size-4" /></a></>}{job.status === 'failed' && <form action={`/api/jobs/${job.id}/retry`} method="post"><button className="rounded-full border border-white/15 p-2.5" aria-label="다시 시도"><RefreshCw className="size-4" /></button></form>}<button className="rounded-full border border-white/15 p-2.5 text-white/45" aria-label="삭제"><Trash2 className="size-4" /></button></div>
+            <JobActions id={job.id} status={job.status} />
           </article>)}
         </div>
       </section>

@@ -1,3 +1,9 @@
 ADMIN_USERNAME=change-this-admin-id
 ADMIN_PASSWORD=change-this-to-a-strong-password
 ADMIN_SETUP_TOKEN=change-this-to-a-long-random-token
+REPLICATE_API_TOKEN=r8_your-token
+REPLICATE_VERSION=your-replicate-version-id
+R2_ACCOUNT_ID=your-cloudflare-account-id
+R2_BUCKET_NAME=deepup-media
+R2_ACCESS_KEY_ID=your-r2-access-key-id
+R2_SECRET_ACCESS_KEY=your-r2-secret-access-key

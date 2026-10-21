@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS processing_jobs (
   id TEXT PRIMARY KEY,
   user_id TEXT,
+  guest_token TEXT,
   media_type TEXT NOT NULL CHECK (media_type IN ('image', 'video')),
   category TEXT NOT NULL DEFAULT '풍경',
   original_name TEXT NOT NULL,
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS processing_jobs (
   duration_seconds INTEGER,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   completed_at TEXT,
+  expires_at TEXT,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -28,3 +30,6 @@ ON processing_jobs(user_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_processing_jobs_status
 ON processing_jobs(status);
+
+CREATE INDEX IF NOT EXISTS idx_processing_jobs_guest
+ON processing_jobs(guest_token, created_at DESC);

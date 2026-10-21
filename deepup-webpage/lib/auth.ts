@@ -3,9 +3,16 @@ import { env } from 'cloudflare:workers';
 type DB = D1Database;
 type RuntimeEnv = {
   DB: DB;
+  MEDIA: R2Bucket;
   ADMIN_USERNAME?: string;
   ADMIN_PASSWORD?: string;
   ADMIN_SETUP_TOKEN?: string;
+  REPLICATE_API_TOKEN?: string;
+  REPLICATE_VERSION?: string;
+  R2_ACCOUNT_ID?: string;
+  R2_BUCKET_NAME?: string;
+  R2_ACCESS_KEY_ID?: string;
+  R2_SECRET_ACCESS_KEY?: string;
 };
 
 export const runtimeEnv = () => env as unknown as RuntimeEnv;
