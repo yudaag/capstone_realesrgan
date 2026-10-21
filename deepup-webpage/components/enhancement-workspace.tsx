@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Download, ImageUp, LoaderCircle, Sparkles } from 'lucide-react';
+import { mediaContentType } from '@/lib/media-type';
 
 type Job = { id: string; status: string; progress: number; media_type: 'image' | 'video'; error_message?: string };
 type User = { username: string } | null;
@@ -43,18 +44,19 @@ export function EnhancementWorkspace() {
     if (!file || busy) return;
     setBusy(true);
     try {
+      const contentType = mediaContentType(file.name, file.type);
       setStage('R2 업로드 주소 생성 중');
-      const presign = await fetch('/api/uploads/presign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: file.name, type: file.type, size: file.size }) });
+      const presign = await fetch('/api/uploads/presign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: file.name, type: contentType, size: file.size }) });
       const upload = await presign.json();
       if (!presign.ok) throw new Error(upload.error || '업로드 준비 실패');
       setStage('파일 업로드 중');
-      const put = await fetch(upload.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+      const put = await fetch(upload.uploadUrl, { method: 'PUT', headers: { 'Content-Type': contentType }, body: file });
       if (!put.ok) {
         const failure = await put.json().catch(() => null) as { error?: string } | null;
         throw new Error(failure?.error || `R2 업로드에 실패했습니다. (${put.status})`);
       }
       setStage('AI 작업 생성 중');
-      const create = await fetch('/api/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ objectKey: upload.objectKey, mediaType: upload.mediaType, name: file.name, size: file.size, contentType: file.type }) });
+      const create = await fetch('/api/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ objectKey: upload.objectKey, mediaType: upload.mediaType, name: file.name, size: file.size, contentType }) });
       const created = await create.json();
       if (!create.ok) throw new Error(created.error || 'AI 작업 생성 실패');
       setJob({ id: created.id, status: created.status, progress: 5, media_type: upload.mediaType });

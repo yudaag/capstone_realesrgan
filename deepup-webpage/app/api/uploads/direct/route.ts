@@ -1,6 +1,7 @@
 import { currentUser, runtimeEnv } from '@/lib/auth';
 import { policyFor } from '@/lib/entitlements';
 import { cookieValue, guestCookieName, sourceSignature } from '@/lib/jobs';
+import { mediaContentType } from '@/lib/media-type';
 
 const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime']);
 
@@ -18,7 +19,7 @@ export async function PUT(request: Request) {
     return Response.json({ error: '업로드 권한을 확인할 수 없습니다.' }, { status: 403 });
   }
 
-  const type = request.headers.get('content-type') || 'application/octet-stream';
+  const type = mediaContentType(key, request.headers.get('content-type'));
   if (!allowedTypes.has(type)) return Response.json({ error: '지원하지 않는 파일 형식입니다.' }, { status: 400 });
   if (!user && type.startsWith('video/')) return Response.json({ error: '영상 개선은 로그인 후 이용할 수 있습니다.' }, { status: 401 });
 

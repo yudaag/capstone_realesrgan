@@ -2,6 +2,7 @@ import { policyFor } from '@/lib/entitlements';
 import { currentUser, db } from '@/lib/auth';
 import { guestCookie, guestCookieName, cookieValue, sourceSignature } from '@/lib/jobs';
 import { safeFileName } from '@/lib/storage';
+import { mediaContentType } from '@/lib/media-type';
 
 const imageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const videoTypes = new Set(['video/mp4', 'video/quicktime']);
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
   const policy = policyFor(user);
   const body = await request.json() as { name?: string; type?: string; size?: number };
   const name = safeFileName(body.name || 'upload.bin');
-  const type = body.type || 'application/octet-stream';
+  const type = mediaContentType(name, body.type);
   const size = Number(body.size || 0);
   const isImage = imageTypes.has(type), isVideo = videoTypes.has(type);
   if (!isImage && !isVideo) return Response.json({ error: '지원하지 않는 파일 형식입니다.' }, { status: 400 });
