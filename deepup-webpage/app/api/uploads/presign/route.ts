@@ -29,8 +29,11 @@ export async function POST(request: Request) {
     const uploadUrl = await signedObjectUrl(objectKey, 'PUT', type);
     return Response.json({ uploadUrl, objectKey, mediaType: isImage ? 'image' : 'video' }, { headers: guestToken && !existingGuest ? { 'Set-Cookie': guestCookie(guestToken) } : undefined });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'R2 업로드 주소 생성에 실패했습니다.';
     console.error('R2 presign failed:', error);
-    return Response.json({ error: message }, { status: 500 });
+    const directUrl = `/api/uploads/direct?key=${encodeURIComponent(objectKey)}`;
+    return Response.json(
+      { uploadUrl: directUrl, objectKey, mediaType: isImage ? 'image' : 'video', uploadMode: 'worker' },
+      { headers: guestToken && !existingGuest ? { 'Set-Cookie': guestCookie(guestToken) } : undefined },
+    );
   }
 }
