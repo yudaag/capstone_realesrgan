@@ -25,6 +25,12 @@ export async function POST(request: Request) {
   const guestToken = user ? null : existingGuest || crypto.randomUUID();
   const owner = user ? `users/${user.id}` : `guests/${guestToken}`;
   const objectKey = `${owner}/original/${crypto.randomUUID()}-${name}`;
-  const uploadUrl = await signedObjectUrl(objectKey, 'PUT', type);
-  return Response.json({ uploadUrl, objectKey, mediaType: isImage ? 'image' : 'video' }, { headers: guestToken && !existingGuest ? { 'Set-Cookie': guestCookie(guestToken) } : undefined });
+  try {
+    const uploadUrl = await signedObjectUrl(objectKey, 'PUT', type);
+    return Response.json({ uploadUrl, objectKey, mediaType: isImage ? 'image' : 'video' }, { headers: guestToken && !existingGuest ? { 'Set-Cookie': guestCookie(guestToken) } : undefined });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'R2 업로드 주소 생성에 실패했습니다.';
+    console.error('R2 presign failed:', error);
+    return Response.json({ error: message }, { status: 500 });
+  }
 }
