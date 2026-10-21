@@ -15,7 +15,21 @@ type RuntimeEnv = {
   R2_SECRET_ACCESS_KEY?: string;
 };
 
-export const runtimeEnv = () => env as unknown as RuntimeEnv;
+export const runtimeEnv = () => {
+  const workerEnv = env as unknown as RuntimeEnv;
+  return {
+    ...workerEnv,
+    ADMIN_USERNAME: workerEnv.ADMIN_USERNAME || process.env.ADMIN_USERNAME,
+    ADMIN_PASSWORD: workerEnv.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD,
+    ADMIN_SETUP_TOKEN: workerEnv.ADMIN_SETUP_TOKEN || process.env.ADMIN_SETUP_TOKEN,
+    REPLICATE_API_TOKEN: workerEnv.REPLICATE_API_TOKEN || process.env.REPLICATE_API_TOKEN,
+    REPLICATE_VERSION: workerEnv.REPLICATE_VERSION || process.env.REPLICATE_VERSION,
+    R2_ACCOUNT_ID: workerEnv.R2_ACCOUNT_ID || process.env.R2_ACCOUNT_ID,
+    R2_BUCKET_NAME: workerEnv.R2_BUCKET_NAME || process.env.R2_BUCKET_NAME,
+    R2_ACCESS_KEY_ID: workerEnv.R2_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID,
+    R2_SECRET_ACCESS_KEY: workerEnv.R2_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY,
+  } as RuntimeEnv;
+};
 export const db = () => runtimeEnv().DB;
 
 export type SessionUser = { id: string; username: string; role: string };
