@@ -26,7 +26,7 @@ import pipeline  # noqa: E402
 
 
 ROOT = SystemPath(__file__).resolve().parent
-WEIGHTS = ROOT / "weights" / "RealESRGAN_x4plus.pth"
+WEIGHTS = ROOT / "weights" / "best_proposed_realesrgan_div2k.pth"
 DEPTH_MODEL_ID = "depth-anything/Depth-Anything-V2-Small-hf"
 
 

@@ -100,7 +100,7 @@ MIN_STRUCTURE_BLUR = 0.03
 
 BLUR_SIGMA = 2.5
 
-MASK_SIGMA = 0.5
+MASK_SIGMA = 1.0
 
 
 # ============================================================
@@ -2511,5 +2511,4 @@ def process_media(
             f"지원 IMAGE: {sorted(IMAGE_EXTENSIONS)}\n"
             f"지원 VIDEO: {sorted(VIDEO_EXTENSIONS)}"
         )
-
 
