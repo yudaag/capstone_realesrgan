@@ -11,6 +11,22 @@ type RuntimeEnv = {
 export const runtimeEnv = () => env as unknown as RuntimeEnv;
 export const db = () => runtimeEnv().DB;
 
+export type SessionUser = { id: string; username: string; role: string };
+
+export async function currentUserFromCookie(cookie: string): Promise<SessionUser | null> {
+  await initDb();
+  const sid = cookie.match(/(?:^|;\s*)deepup_session=([^;]+)/)?.[1];
+  if (!sid) return null;
+  const user = await db().prepare(
+    'SELECT users.id, users.username, users.role FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.id = ? AND sessions.expires_at > ?',
+  ).bind(sid, new Date().toISOString()).first<SessionUser>();
+  return user || null;
+}
+
+export async function currentUser(request: Request) {
+  return currentUserFromCookie(request.headers.get('cookie') || '');
+}
+
 const enc = new TextEncoder();
 const hex = (bytes: Uint8Array) => Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
 

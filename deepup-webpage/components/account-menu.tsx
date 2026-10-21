@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { LogOut, Menu, ShieldCheck, UserRound } from 'lucide-react';
+import { History, LogOut, Menu, ShieldCheck, UserRound } from 'lucide-react';
 
 type User = { username: string; role: string };
 
@@ -32,6 +32,7 @@ export function AccountMenu() {
     </button>
     {open && <div className="absolute right-0 top-12 z-50 w-48 overflow-hidden rounded-xl border border-white/12 bg-[#111114] p-1.5 shadow-2xl">
       <div className="border-b border-white/8 px-3 py-2.5"><p className="text-xs font-bold">{user.username}</p><p className="mt-1 text-[10px] text-white/40">{user.role === 'admin' ? '관리자 계정' : 'DeepUp 회원'}</p></div>
+      <a href="/mypage" className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold hover:bg-white/8"><History className="size-4 text-[#7895ff]" />마이페이지</a>
       {user.role === 'admin' && <a href="/admin" className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold hover:bg-white/8"><ShieldCheck className="size-4 text-[#7895ff]" />관리자 페이지</a>}
       <button onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold text-red-300 hover:bg-white/8"><LogOut className="size-4" />로그아웃</button>
     </div>}
