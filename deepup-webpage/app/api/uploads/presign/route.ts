@@ -1,7 +1,7 @@
 import { policyFor } from '@/lib/entitlements';
 import { currentUser, db } from '@/lib/auth';
 import { guestCookie, guestCookieName, cookieValue } from '@/lib/jobs';
-import { safeFileName, signedObjectUrl } from '@/lib/storage';
+import { safeFileName } from '@/lib/storage';
 
 const imageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const videoTypes = new Set(['video/mp4', 'video/quicktime']);
@@ -25,15 +25,9 @@ export async function POST(request: Request) {
   const guestToken = user ? null : existingGuest || crypto.randomUUID();
   const owner = user ? `users/${user.id}` : `guests/${guestToken}`;
   const objectKey = `${owner}/original/${crypto.randomUUID()}-${name}`;
-  try {
-    const uploadUrl = await signedObjectUrl(objectKey, 'PUT', type);
-    return Response.json({ uploadUrl, objectKey, mediaType: isImage ? 'image' : 'video' }, { headers: guestToken && !existingGuest ? { 'Set-Cookie': guestCookie(guestToken) } : undefined });
-  } catch (error) {
-    console.error('R2 presign failed:', error);
-    const directUrl = `/api/uploads/direct?key=${encodeURIComponent(objectKey)}`;
-    return Response.json(
-      { uploadUrl: directUrl, objectKey, mediaType: isImage ? 'image' : 'video', uploadMode: 'worker' },
-      { headers: guestToken && !existingGuest ? { 'Set-Cookie': guestCookie(guestToken) } : undefined },
-    );
-  }
+  const directUrl = `/api/uploads/direct?key=${encodeURIComponent(objectKey)}`;
+  return Response.json(
+    { uploadUrl: directUrl, objectKey, mediaType: isImage ? 'image' : 'video', uploadMode: 'worker' },
+    { headers: guestToken && !existingGuest ? { 'Set-Cookie': guestCookie(guestToken) } : undefined },
+  );
 }
