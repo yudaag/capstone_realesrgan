@@ -1,6 +1,6 @@
 import { policyFor } from '@/lib/entitlements';
 import { currentUser, db } from '@/lib/auth';
-import { guestCookie, guestCookieName, cookieValue } from '@/lib/jobs';
+import { guestCookie, guestCookieName, cookieValue, sourceSignature } from '@/lib/jobs';
 import { safeFileName } from '@/lib/storage';
 
 const imageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -25,7 +25,9 @@ export async function POST(request: Request) {
   const guestToken = user ? null : existingGuest || crypto.randomUUID();
   const owner = user ? `users/${user.id}` : `guests/${guestToken}`;
   const objectKey = `${owner}/original/${crypto.randomUUID()}-${name}`;
-  const directUrl = `/api/uploads/direct?key=${encodeURIComponent(objectKey)}`;
+  const expires = String(Math.floor(Date.now() / 1000) + 3600);
+  const signature = await sourceSignature(objectKey, expires);
+  const directUrl = `/api/uploads/direct?key=${encodeURIComponent(objectKey)}&expires=${expires}&sig=${signature}`;
   return Response.json(
     { uploadUrl: directUrl, objectKey, mediaType: isImage ? 'image' : 'video', uploadMode: 'worker' },
     { headers: guestToken && !existingGuest ? { 'Set-Cookie': guestCookie(guestToken) } : undefined },

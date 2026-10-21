@@ -1,15 +1,20 @@
 import { currentUser, runtimeEnv } from '@/lib/auth';
 import { policyFor } from '@/lib/entitlements';
-import { cookieValue, guestCookieName } from '@/lib/jobs';
+import { cookieValue, guestCookieName, sourceSignature } from '@/lib/jobs';
 
 const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime']);
 
 export async function PUT(request: Request) {
   const user = await currentUser(request);
   const guestToken = cookieValue(request, guestCookieName);
-  const key = new URL(request.url).searchParams.get('key') || '';
+  const url = new URL(request.url);
+  const key = url.searchParams.get('key') || '';
+  const expires = url.searchParams.get('expires') || '';
+  const signature = url.searchParams.get('sig') || '';
+  const expectedSignature = key && expires ? await sourceSignature(key, expires) : '';
+  const signedAccess = Boolean(signature && expectedSignature && signature === expectedSignature && Number(expires) >= Math.floor(Date.now() / 1000));
   const expectedPrefix = user ? `users/${user.id}/original/` : guestToken ? `guests/${guestToken}/original/` : '';
-  if (!expectedPrefix || !key.startsWith(expectedPrefix)) {
+  if (!signedAccess && (!expectedPrefix || !key.startsWith(expectedPrefix))) {
     return Response.json({ error: '업로드 권한을 확인할 수 없습니다.' }, { status: 403 });
   }
 

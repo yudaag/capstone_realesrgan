@@ -49,7 +49,10 @@ export function EnhancementWorkspace() {
       if (!presign.ok) throw new Error(upload.error || '업로드 준비 실패');
       setStage('파일 업로드 중');
       const put = await fetch(upload.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
-      if (!put.ok) throw new Error('R2 업로드에 실패했습니다. 버킷 CORS 설정을 확인해 주세요.');
+      if (!put.ok) {
+        const failure = await put.json().catch(() => null) as { error?: string } | null;
+        throw new Error(failure?.error || `R2 업로드에 실패했습니다. (${put.status})`);
+      }
       setStage('AI 작업 생성 중');
       const create = await fetch('/api/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ objectKey: upload.objectKey, mediaType: upload.mediaType, name: file.name, size: file.size, contentType: file.type }) });
       const created = await create.json();
