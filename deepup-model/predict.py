@@ -11,6 +11,7 @@ from pathlib import Path as SystemPath
 import torch
 import torchvision.transforms.functional as TF
 from cog import BasePredictor, Input, Path
+from PIL import Image
 from transformers import AutoImageProcessor, AutoModelForDepthEstimation
 
 # BasicSR still imports a torchvision module removed in newer torchvision.
@@ -28,6 +29,56 @@ import pipeline  # noqa: E402
 ROOT = SystemPath(__file__).resolve().parent
 WEIGHTS = ROOT / "weights" / "best_proposed_realesrgan_div2k.pth"
 DEPTH_MODEL_ID = "depth-anything/Depth-Anything-V2-Small-hf"
+
+
+def detect_extension(source: SystemPath) -> str:
+    """Detect media type even when Cog downloads a URL without a suffix."""
+    suffix = source.suffix.lower()
+    supported = pipeline.IMAGE_EXTENSIONS | pipeline.VIDEO_EXTENSIONS
+    if suffix in supported:
+        return suffix
+
+    try:
+        with Image.open(source) as image:
+            image_format = (image.format or "").upper()
+        image_extensions = {
+            "JPEG": ".jpg",
+            "PNG": ".png",
+            "WEBP": ".webp",
+            "BMP": ".bmp",
+            "TIFF": ".tiff",
+        }
+        if image_format in image_extensions:
+            return image_extensions[image_format]
+    except Exception:
+        pass
+
+    probe = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=format_name",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            str(source),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    formats = {item.strip().lower() for item in probe.stdout.split(",") if item.strip()}
+    if formats & {"mov", "mp4", "m4a", "3gp", "3g2", "mj2"}:
+        return ".mp4"
+    if "webm" in formats:
+        return ".webm"
+    if "matroska" in formats:
+        return ".mkv"
+    if "avi" in formats:
+        return ".avi"
+
+    raise ValueError("지원하지 않는 파일 형식입니다. 이미지 또는 동영상 내용을 확인할 수 없습니다.")
 
 
 class Predictor(BasePredictor):
@@ -80,10 +131,7 @@ class Predictor(BasePredictor):
     ) -> Path:
         """Enhance one image or video and return the final media file."""
         source = SystemPath(str(media))
-        extension = source.suffix.lower()
-        supported = pipeline.IMAGE_EXTENSIONS | pipeline.VIDEO_EXTENSIONS
-        if extension not in supported:
-            raise ValueError(f"지원하지 않는 파일 형식입니다: {extension}")
+        extension = detect_extension(source)
 
         work_dir = SystemPath(tempfile.mkdtemp(prefix="deepup-"))
         input_path = work_dir / f"input{extension}"
