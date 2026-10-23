@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   const signature = await sourceSignature(objectKey, expires);
   const directUrl = `/api/uploads/direct?key=${encodeURIComponent(objectKey)}&expires=${expires}&sig=${signature}`;
   return Response.json(
-    { uploadUrl: directUrl, objectKey, mediaType: isImage ? 'image' : 'video', uploadMode: 'worker' },
+    { uploadUrl: directUrl, objectKey, mediaType: isImage ? 'image' : 'video', contentType: type, uploadMode: 'worker' },
     { headers: guestToken && !existingGuest ? { 'Set-Cookie': guestCookie(guestToken) } : undefined },
   );
 }

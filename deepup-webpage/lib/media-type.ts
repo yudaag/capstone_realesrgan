@@ -8,9 +8,20 @@ const extensionTypes: Record<string, string> = {
 };
 
 export function mediaContentType(name: string, reportedType?: string | null) {
-  const normalized = reportedType?.trim().toLowerCase();
-  if (normalized && normalized !== 'application/octet-stream') return normalized;
-
   const extension = name.split('.').pop()?.toLowerCase() || '';
-  return extensionTypes[extension] || 'application/octet-stream';
+  const typeFromExtension = extensionTypes[extension];
+  if (typeFromExtension) return typeFromExtension;
+
+  const normalized = reportedType?.split(';')[0]?.trim().toLowerCase();
+  const aliases: Record<string, string> = {
+    'image/jpg': 'image/jpeg',
+    'image/pjpeg': 'image/jpeg',
+    'image/x-png': 'image/png',
+    'video/x-m4v': 'video/mp4',
+  };
+
+  if (normalized && normalized !== 'application/octet-stream') {
+    return aliases[normalized] || normalized;
+  }
+  return 'application/octet-stream';
 }
