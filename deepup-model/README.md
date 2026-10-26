@@ -1,7 +1,10 @@
-# DeepUp 빠른·안정화 모델 코드
+# DeepUp 카테고리 선택 모델 코드
 
 파인튜닝된 `best_proposed_realesrgan_div2k.pth`를 사용하되, 웹 추론에서는
 Real-ESRGAN 결과를 바로 반환합니다.
+
+`category=photo`는 기존 파인튜닝 모델을 사용하고, `category=anime`는
+`RealESRGAN_x4plus_anime_6B` 애니 전용 모델을 사용합니다.
 
 ## 변경 사항
 

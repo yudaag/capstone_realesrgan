@@ -6,6 +6,7 @@ import { mediaContentType } from '@/lib/media-type';
 
 type Job = { id: string; status: string; progress: number; media_type: 'image' | 'video'; error_message?: string };
 type User = { username: string } | null;
+type Category = 'photo' | 'anime';
 
 export function EnhancementWorkspace() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -15,6 +16,7 @@ export function EnhancementWorkspace() {
   const [job, setJob] = useState<Job | null>(null);
   const [stage, setStage] = useState('파일을 선택해 주세요.');
   const [busy, setBusy] = useState(false);
+  const [category, setCategory] = useState<Category>('photo');
 
   useEffect(() => { fetch('/api/auth/me').then((r) => r.json()).then((d) => setUser(d.user || null)); }, []);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
@@ -57,7 +59,7 @@ export function EnhancementWorkspace() {
         throw new Error(failure?.error || `R2 업로드에 실패했습니다. (${put.status})`);
       }
       setStage('AI 작업 생성 중');
-      const create = await fetch('/api/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ objectKey: upload.objectKey, mediaType: upload.mediaType, name: file.name, size: file.size, contentType: uploadContentType }) });
+      const create = await fetch('/api/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ objectKey: upload.objectKey, mediaType: upload.mediaType, name: file.name, size: file.size, contentType: uploadContentType, category }) });
       const created = await create.json();
       if (!create.ok) throw new Error(created.error || 'AI 작업 생성 실패');
       setJob({ id: created.id, status: created.status, progress: 5, media_type: upload.mediaType });
@@ -68,6 +70,14 @@ export function EnhancementWorkspace() {
 
   const finished = job?.status === 'succeeded';
   return <div className="max-w-[620px]">
+    <div className="mb-4 rounded-2xl border border-white/10 bg-white/[.04] p-4">
+      <p className="mb-3 text-xs font-bold text-white/55">이미지 카테고리를 선택하세요</p>
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" disabled={busy} onClick={() => setCategory('photo')} className={`rounded-xl border px-4 py-3 text-sm font-black transition ${category === 'photo' ? 'border-[#5f83ff] bg-[#1a2c68] text-white' : 'border-white/10 bg-black/20 text-white/45 hover:text-white'}`}>풍경 · 실사</button>
+        <button type="button" disabled={busy} onClick={() => setCategory('anime')} className={`rounded-xl border px-4 py-3 text-sm font-black transition ${category === 'anime' ? 'border-[#5f83ff] bg-[#1a2c68] text-white' : 'border-white/10 bg-black/20 text-white/45 hover:text-white'}`}>애니 · 일러스트</button>
+      </div>
+      <p className="mt-3 text-[11px] text-white/35">풍경·실사: 파인튜닝 모델 · 애니·일러스트: 애니 전용 모델</p>
+    </div>
     <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); void choose(event.dataTransfer.files[0]); }} onClick={() => inputRef.current?.click()} className="cursor-pointer rounded-2xl border-2 border-[#5477ff] bg-[#14255d]/75 p-7 shadow-[0_0_55px_rgba(39,92,255,.18)] transition hover:bg-[#192d70] lg:p-9">
       <input ref={inputRef} type="file" accept={user ? 'image/jpeg,image/png,image/webp,video/mp4,video/quicktime' : 'image/jpeg,image/png,image/webp'} className="hidden" onChange={(event) => void choose(event.target.files?.[0])} />
       <div className="flex flex-col items-center text-center"><ImageUp className="size-10 text-white/90" strokeWidth={1.6} /><div className="mt-5 rounded-full bg-[#3867ff] px-7 py-3.5 text-sm font-extrabold shadow-[0_10px_30px_rgba(39,92,255,.35)]">이미지 또는 영상 업로드</div><p className="mt-5 text-lg font-bold">또는 여기에 끌어다 놓으세요</p><p className="mt-3 text-xs leading-5 text-white/45">{user ? 'JPG, PNG, WEBP, MP4, MOV · 최대 500MB' : '비로그인 체험 · JPG, PNG, WEBP · 최대 10MB'}</p></div>

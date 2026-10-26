@@ -27,10 +27,12 @@ sys.modules["torchvision.transforms.functional_tensor"] = functional_tensor
 
 from basicsr.archs.rrdbnet_arch import RRDBNet  # noqa: E402
 from realesrgan import RealESRGANer  # noqa: E402
+from realesrgan.archs.srvgg_arch import SRVGGNetCompact  # noqa: E402
 
 
 ROOT = SystemPath(__file__).resolve().parent
 WEIGHTS = ROOT / "weights" / "best_proposed_realesrgan_div2k.pth"
+ANIME_WEIGHTS = ROOT / "weights" / "RealESRGAN_x4plus_anime_6B.pth"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
 
@@ -107,21 +109,39 @@ class Predictor(BasePredictor):
             half=torch.cuda.is_available(),
         )
 
-    def enhance_frame(self, frame, scale: int):
-        enhanced, _ = self.upsampler.enhance(frame, outscale=scale)
+        anime_model = SRVGGNetCompact(
+            num_in_ch=3,
+            num_out_ch=3,
+            num_feat=64,
+            num_conv=6,
+            upscale=4,
+            act_type="prelu",
+        )
+        self.anime_upsampler = RealESRGANer(
+            scale=4,
+            model_path=str(ANIME_WEIGHTS),
+            model=anime_model,
+            tile=256,
+            tile_pad=10,
+            pre_pad=0,
+            half=torch.cuda.is_available(),
+        )
+
+    def enhance_frame(self, frame, scale: int, upsampler):
+        enhanced, _ = upsampler.enhance(frame, outscale=scale)
         return enhanced
 
-    def enhance_image(self, source: SystemPath, work_dir: SystemPath, scale: int) -> Path:
+    def enhance_image(self, source: SystemPath, work_dir: SystemPath, scale: int, upsampler) -> Path:
         image = cv2.imread(str(source), cv2.IMREAD_COLOR)
         if image is None:
             raise ValueError("이미지를 읽을 수 없습니다.")
-        result = self.enhance_frame(image, scale)
+        result = self.enhance_frame(image, scale, upsampler)
         output = work_dir / "deepup_result.png"
         if not cv2.imwrite(str(output), result):
             raise RuntimeError("결과 이미지를 저장하지 못했습니다.")
         return Path(str(output))
 
-    def enhance_video(self, source: SystemPath, work_dir: SystemPath, scale: int) -> Path:
+    def enhance_video(self, source: SystemPath, work_dir: SystemPath, scale: int, upsampler) -> Path:
         capture = cv2.VideoCapture(str(source))
         if not capture.isOpened():
             raise ValueError("동영상을 읽을 수 없습니다.")
@@ -145,7 +165,7 @@ class Predictor(BasePredictor):
                 ok, frame = capture.read()
                 if not ok:
                     break
-                writer.write(self.enhance_frame(frame, scale))
+                writer.write(self.enhance_frame(frame, scale, upsampler))
         finally:
             capture.release()
             writer.release()
@@ -177,6 +197,11 @@ class Predictor(BasePredictor):
     def predict(
         self,
         media: Path = Input(description="개선할 이미지 또는 동영상 파일"),
+        category: str = Input(
+            description="이미지 카테고리",
+            default="photo",
+            choices=["photo", "anime"],
+        ),
         scale: int = Input(description="출력 확대 배율", default=4, choices=[2, 4]),
     ) -> Path:
         source = SystemPath(str(media))
@@ -185,6 +210,8 @@ class Predictor(BasePredictor):
         local_input = work_dir / f"input{extension}"
         shutil.copyfile(source, local_input)
 
+        selected_upsampler = self.anime_upsampler if category == "anime" else self.upsampler
+
         if extension in IMAGE_EXTENSIONS:
-            return self.enhance_image(local_input, work_dir, scale)
-        return self.enhance_video(local_input, work_dir, scale)
+            return self.enhance_image(local_input, work_dir, scale, selected_upsampler)
+        return self.enhance_video(local_input, work_dir, scale, selected_upsampler)

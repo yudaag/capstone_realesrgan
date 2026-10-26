@@ -22,7 +22,7 @@ export async function sourceSignature(key: string, expires: string) {
   return toHex(await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(`${key}\n${expires}`)));
 }
 
-export async function startPrediction(originalKey: string, scale: number, origin: string) {
+export async function startPrediction(originalKey: string, scale: number, origin: string, category: 'photo' | 'anime' = 'photo') {
   const env = runtimeEnv();
   if (!env.REPLICATE_API_TOKEN || !env.REPLICATE_VERSION) throw new Error('Replicate 환경변수가 설정되지 않았습니다.');
   const expires = String(Math.floor(Date.now() / 1000) + 3600);
@@ -34,7 +34,7 @@ export async function startPrediction(originalKey: string, scale: number, origin
   const media = mediaUrl.toString();
   const response = await fetch('https://api.replicate.com/v1/predictions', {
     method: 'POST', headers: { Authorization: `Bearer ${env.REPLICATE_API_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ version: env.REPLICATE_VERSION, input: { media, scale } }),
+    body: JSON.stringify({ version: env.REPLICATE_VERSION, input: { media, scale, category } }),
   });
   const prediction = await response.json() as { id?: string; error?: string; detail?: string };
   if (!response.ok || !prediction.id) throw new Error(prediction.detail || prediction.error || 'Replicate 작업 생성에 실패했습니다.');
