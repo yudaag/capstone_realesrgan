@@ -17,6 +17,7 @@ build:
     - "mkdir -p /src/weights"
     - "wget -q -O /src/weights/best_proposed_realesrgan_div2k.pth https://pub-010b39628b9c49d3bc4e2ef028d495fc.r2.dev/best_proposed_realesrgan_div2k.pth"
     - "echo '8e8a1af39cf8aa5e1e21b39ea5dd8b10d147f3edad0e677fe825051dbe262f47  /src/weights/best_proposed_realesrgan_div2k.pth' | sha256sum -c -"
+    - "python -c \"from transformers import AutoImageProcessor, AutoModelForDepthEstimation; m='depth-anything/Depth-Anything-V2-Small-hf'; AutoImageProcessor.from_pretrained(m); AutoModelForDepthEstimation.from_pretrained(m)\""
 
 image: "r8.im/yudaag/realesrgan_upscaling"
 predict: "predict.py:Predictor"
