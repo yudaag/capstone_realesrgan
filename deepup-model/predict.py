@@ -27,7 +27,6 @@ sys.modules["torchvision.transforms.functional_tensor"] = functional_tensor
 
 from basicsr.archs.rrdbnet_arch import RRDBNet  # noqa: E402
 from realesrgan import RealESRGANer  # noqa: E402
-from realesrgan.archs.srvgg_arch import SRVGGNetCompact  # noqa: E402
 
 
 ROOT = SystemPath(__file__).resolve().parent
@@ -109,13 +108,13 @@ class Predictor(BasePredictor):
             half=torch.cuda.is_available(),
         )
 
-        anime_model = SRVGGNetCompact(
+        anime_model = RRDBNet(
             num_in_ch=3,
             num_out_ch=3,
             num_feat=64,
-            num_conv=6,
-            upscale=4,
-            act_type="prelu",
+            num_block=6,
+            num_grow_ch=32,
+            scale=4,
         )
         self.anime_upsampler = RealESRGANer(
             scale=4,
