@@ -1,22 +1,22 @@
 # DeepUp 카테고리 선택 모델 코드
 
-파인튜닝된 `best_proposed_realesrgan_div2k.pth`를 사용하되, 웹 추론에서는
-Real-ESRGAN 결과를 바로 반환합니다.
+노트북에서 보았던 `OURS` 결과와 같은 Depth + Structure 후처리를 웹 추론에도 적용합니다.
 
-`category=photo`는 기존 파인튜닝 모델을 사용하고, `category=anime`는
-`RealESRGAN_x4plus_anime_6B` 애니 전용 모델을 사용합니다.
+`category=photo`는 파인튜닝 모델 + Depth/Structure 파이프라인을 사용합니다.
+`category=anime`는 `depth_final.ipynb`처럼 원본 `RealESRGAN_x4plus` +
+Depth/Structure 파이프라인을 사용합니다.
 
 ## 변경 사항
 
-- Depth Anything 모델 제거
-- 깊이 기반 Gaussian Blur 및 구조 합성 제거
+- Depth Anything V2 적용
+- 깊이 기반 블러와 구조 보호 합성 적용
 - 파인튜닝된 RRDBNet 가중치는 그대로 사용
 - 확장자 없는 Replicate 입력 파일도 내용으로 판별
 - 이미지와 동영상 입력 지원
 - 동영상은 H.264 MP4로 반환
 
-이 버전은 기존 버전보다 GPU 시작 시간이 짧고, 잘못된 깊이 추정 때문에
-이미지가 다시 흐려지는 문제를 피합니다.
+노트북의 `OURS` 처리 경로를 그대로 사용하기 때문에 단순 Real-ESRGAN보다
+실행 시간이 더 필요합니다.
 
 ## GitHub 반영
 
