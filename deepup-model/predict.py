@@ -1,3 +1,5 @@
+
+
 """Replicate/Cog entry point for the DeepUp capstone model."""
 
 import os
@@ -113,6 +115,11 @@ class Predictor(BasePredictor):
             default=4,
             choices=[2, 4],
         ),
+        downscale: int = Input(
+            description="Real-ESRGAN 전에 입력을 먼저 줄이는 배율 (코랩 노트북과 동일하게 8). 1이면 줄이지 않음",
+            default=8,
+            choices=[1, 2, 4, 8],
+        ),
     ) -> Path:
         """Enhance one image and return the final PNG file."""
         source = SystemPath(str(media))
@@ -133,8 +140,8 @@ class Predictor(BasePredictor):
         )
 
         pipeline.UPSCALE = scale
-        pipeline.MAKE_LOW_RESOLUTION = category == "anime"
-        pipeline.DOWNSCALE = 8
+        pipeline.MAKE_LOW_RESOLUTION = downscale > 1
+        pipeline.DOWNSCALE = downscale
 
         result_path, _ = pipeline.process_media(str(input_path), str(work_dir))
         return Path(str(result_path))
