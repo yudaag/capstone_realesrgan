@@ -11,8 +11,10 @@ build:
     - "libglib2.0-0"
   run:
     - "git clone --depth 1 https://github.com/XPixelGroup/BasicSR.git /src/BasicSR"
+    - "printf '__version__ = \"1.4.2\"\\n__gitsha__ = \"unknown\"\\nversion_info = (1, 4, 2)\\n' > /src/BasicSR/basicsr/version.py"
     - "pip install -e /src/BasicSR --no-deps"
     - "git clone --depth 1 https://github.com/xinntao/Real-ESRGAN.git /src/Real-ESRGAN"
+    - "printf '__version__ = \"0.3.0\"\\n__gitsha__ = \"unknown\"\\nversion_info = (0, 3, 0)\\n' > /src/Real-ESRGAN/realesrgan/version.py"
     - "pip install -e /src/Real-ESRGAN --no-deps"
     - "mkdir -p /src/weights"
     - "wget -q -O /src/weights/best_proposed_realesrgan_div2k.pth https://pub-010b39628b9c49d3bc4e2ef028d495fc.r2.dev/best_proposed_realesrgan_div2k.pth"
