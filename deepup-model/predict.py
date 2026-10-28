@@ -2,7 +2,6 @@
 
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 import types
@@ -33,10 +32,9 @@ DEPTH_MODEL_ID = "depth-anything/Depth-Anything-V2-Small-hf"
 
 
 def detect_extension(source: SystemPath) -> str:
-    """Detect media content when Replicate downloads a URL without a suffix."""
+    """Detect image content when Replicate downloads a URL without a suffix."""
     suffix = source.suffix.lower()
-    supported = pipeline.IMAGE_EXTENSIONS | pipeline.VIDEO_EXTENSIONS
-    if suffix in supported:
+    if suffix in pipeline.IMAGE_EXTENSIONS:
         return suffix
     try:
         with Image.open(source) as image:
@@ -46,22 +44,7 @@ def detect_extension(source: SystemPath) -> str:
             return mapped[image_format]
     except Exception:
         pass
-    probe = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries", "format=format_name", "-of", "default=noprint_wrappers=1:nokey=1", str(source)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    formats = {item.strip().lower() for item in probe.stdout.split(",") if item.strip()}
-    if formats & {"mov", "mp4", "m4a", "3gp", "3g2", "mj2"}:
-        return ".mp4"
-    if "webm" in formats:
-        return ".webm"
-    if "matroska" in formats:
-        return ".mkv"
-    if "avi" in formats:
-        return ".avi"
-    raise ValueError("지원하지 않는 파일 형식입니다. 이미지 또는 동영상 내용을 확인할 수 없습니다.")
+    raise ValueError("지원하지 않는 파일 형식입니다. 이미지 파일을 선택해 주세요.")
 
 
 class Predictor(BasePredictor):
@@ -123,7 +106,7 @@ class Predictor(BasePredictor):
 
     def predict(
         self,
-        media: Path = Input(description="개선할 이미지 또는 동영상 파일"),
+        media: Path = Input(description="개선할 이미지 파일"),
         category: str = Input(description="이미지 카테고리", default="photo", choices=["photo", "anime"]),
         scale: int = Input(
             description="출력 확대 배율",
@@ -131,7 +114,7 @@ class Predictor(BasePredictor):
             choices=[2, 4],
         ),
     ) -> Path:
-        """Enhance one image or video and return the final media file."""
+        """Enhance one image and return the final PNG file."""
         source = SystemPath(str(media))
         extension = detect_extension(source)
 
@@ -150,38 +133,8 @@ class Predictor(BasePredictor):
         )
 
         pipeline.UPSCALE = scale
-        pipeline.MAKE_LOW_RESOLUTION = False
-        pipeline.SAVE_DEBUG_VIDEO = False
+        pipeline.MAKE_LOW_RESOLUTION = category == "anime"
+        pipeline.DOWNSCALE = 8
 
         result_path, _ = pipeline.process_media(str(input_path), str(work_dir))
-        result_path = SystemPath(result_path)
-
-        if extension in pipeline.VIDEO_EXTENSIONS:
-            # OpenCV's mp4v output is converted to browser-friendly H.264.
-            web_output = work_dir / "deepup_result.mp4"
-            subprocess.run(
-                [
-                    "ffmpeg",
-                    "-y",
-                    "-i",
-                    str(result_path),
-                    "-c:v",
-                    "libx264",
-                    "-preset",
-                    "medium",
-                    "-crf",
-                    "18",
-                    "-pix_fmt",
-                    "yuv420p",
-                    "-movflags",
-                    "+faststart",
-                    "-an",
-                    str(web_output),
-                ],
-                check=True,
-            )
-            return Path(str(web_output))
-
-        image_output = work_dir / "deepup_result.png"
-        shutil.copyfile(result_path, image_output)
-        return Path(str(image_output))
+        return Path(str(result_path))
