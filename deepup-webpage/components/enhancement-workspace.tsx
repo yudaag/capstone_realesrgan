@@ -15,6 +15,7 @@ export function EnhancementWorkspace() {
   const [preview, setPreview] = useState<string | null>(null);
   const [job, setJob] = useState<Job | null>(null);
   const [stage, setStage] = useState('파일을 선택해 주세요.');
+  const [stageProgress, setStageProgress] = useState(0);
   const [busy, setBusy] = useState(false);
   const [category, setCategory] = useState<Category>('photo');
 
@@ -24,7 +25,7 @@ export function EnhancementWorkspace() {
   async function choose(selected?: File) {
     if (!selected) return;
     if (!user && selected.type.startsWith('video/')) { setStage('영상 개선은 로그인 후 이용할 수 있습니다.'); return; }
-    setFile(selected); setJob(null); setStage('업로드 준비 완료');
+    setFile(selected); setJob(null); setStage('업로드 준비 완료'); setStageProgress(0);
     if (preview) URL.revokeObjectURL(preview);
     setPreview(URL.createObjectURL(selected));
   }
@@ -34,8 +35,8 @@ export function EnhancementWorkspace() {
       const response = await fetch(`/api/jobs/${id}`, { cache: 'no-store' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '상태 확인 실패');
-      setJob(data.job); setStage(data.job.status === 'processing' ? `AI 처리 중 · ${data.job.progress || 0}%` : data.job.status);
-      if (data.job.status === 'succeeded') { setStage('화질 개선이 완료되었습니다.'); return; }
+      setJob(data.job); setStageProgress(Number(data.job.progress || 0)); setStage(data.job.status === 'processing' ? 'AI 화질 개선 처리 중' : data.job.status);
+      if (data.job.status === 'succeeded') { setStageProgress(100); setStage('화질 개선이 완료되었습니다.'); return; }
       if (data.job.status === 'failed' || data.job.status === 'canceled') throw new Error(data.job.error_message || '처리에 실패했습니다.');
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
@@ -47,24 +48,24 @@ export function EnhancementWorkspace() {
     setBusy(true);
     try {
       const contentType = mediaContentType(file.name, file.type);
-      setStage('R2 업로드 주소 생성 중');
+      setStageProgress(8); setStage('R2 업로드 주소 생성 중');
       const presign = await fetch('/api/uploads/presign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: file.name, type: contentType, size: file.size }) });
       const upload = await presign.json();
       if (!presign.ok) throw new Error(upload.error || '업로드 준비 실패');
       const uploadContentType = upload.contentType || contentType;
-      setStage('파일 업로드 중');
+      setStageProgress(16); setStage('파일 업로드 중');
       const put = await fetch(upload.uploadUrl, { method: 'PUT', headers: { 'Content-Type': uploadContentType }, body: file });
       if (!put.ok) {
         const failure = await put.json().catch(() => null) as { error?: string } | null;
         throw new Error(failure?.error || `R2 업로드에 실패했습니다. (${put.status})`);
       }
-      setStage('AI 작업 생성 중');
+      setStageProgress(27); setStage('AI 작업 생성 중');
       const create = await fetch('/api/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ objectKey: upload.objectKey, mediaType: upload.mediaType, name: file.name, size: file.size, contentType: uploadContentType, category }) });
       const created = await create.json();
       if (!create.ok) throw new Error(created.error || 'AI 작업 생성 실패');
-      setJob({ id: created.id, status: created.status, progress: 5, media_type: upload.mediaType });
+      setStageProgress(32); setJob({ id: created.id, status: created.status, progress: 5, media_type: upload.mediaType });
       await poll(created.id);
-    } catch (error) { setStage(error instanceof Error ? error.message : '처리에 실패했습니다.'); }
+    } catch (error) { setStageProgress(0); setStage(error instanceof Error ? error.message : '처리에 실패했습니다.'); }
     finally { setBusy(false); }
   }
 
@@ -82,7 +83,7 @@ export function EnhancementWorkspace() {
       <input ref={inputRef} type="file" accept={user ? 'image/jpeg,image/png,image/webp,video/mp4,video/quicktime' : 'image/jpeg,image/png,image/webp'} className="hidden" onChange={(event) => void choose(event.target.files?.[0])} />
       <div className="flex flex-col items-center text-center"><ImageUp className="size-10 text-white/90" strokeWidth={1.6} /><div className="mt-5 rounded-full bg-[#3867ff] px-7 py-3.5 text-sm font-extrabold shadow-[0_10px_30px_rgba(39,92,255,.35)]">이미지 또는 영상 업로드</div><p className="mt-5 text-lg font-bold">또는 여기에 끌어다 놓으세요</p><p className="mt-3 text-xs leading-5 text-white/45">{user ? 'JPG, PNG, WEBP, MP4, MOV · 최대 500MB' : '비로그인 체험 · JPG, PNG, WEBP · 최대 10MB'}</p></div>
     </div>
-    {file && <div className="mt-5 rounded-2xl border border-white/10 bg-white/[.04] p-5"><div className="flex items-center justify-between gap-4"><div className="min-w-0"><p className="truncate text-sm font-bold">{file.name}</p><p className="mt-1 text-xs text-white/40">{(file.size / 1024 / 1024).toFixed(2)}MB · {stage}</p></div><button onClick={run} disabled={busy} className="flex shrink-0 items-center gap-2 rounded-full bg-[#3867ff] px-5 py-3 text-xs font-black disabled:opacity-50">{busy ? <LoaderCircle className="size-4 animate-spin" /> : <Sparkles className="size-4" />}화질 개선</button></div></div>}
+    {file && <div className="mt-5 rounded-2xl border border-white/10 bg-white/[.04] p-5"><div className="flex items-center justify-between gap-4"><div className="min-w-0"><p className="truncate text-sm font-bold">{file.name}</p><p className="mt-1 text-xs text-white/40">{(file.size / 1024 / 1024).toFixed(2)}MB · {stage}</p></div><button onClick={run} disabled={busy} className="flex shrink-0 items-center gap-2 rounded-full bg-[#3867ff] px-5 py-3 text-xs font-black disabled:opacity-50">{busy ? <LoaderCircle className="size-4 animate-spin" /> : <Sparkles className="size-4" />}화질 개선</button></div>{(busy || stageProgress > 0) && <div className="mt-5"><div className="mb-2 flex items-center justify-between text-[11px] font-bold"><span className="text-white/45">{stage}</span><span className="text-[#8fa8ff]">{Math.round(stageProgress)}%</span></div><div className="h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-[#315fff] to-[#7997ff] shadow-[0_0_16px_rgba(82,120,255,.65)] transition-[width] duration-700 ease-out" style={{ width: `${Math.min(100, Math.max(0, stageProgress))}%` }} /></div></div>}</div>}
     {finished && job && <div className="mt-5 overflow-hidden rounded-2xl border border-[#5278ff] bg-[#090d1b] p-5"><div className="grid gap-3 sm:grid-cols-2">{job.media_type === 'image' ? <><img src={`/api/jobs/${job.id}/file?kind=original`} alt="원본" className="aspect-video w-full rounded-xl object-contain bg-black" /><img src={`/api/jobs/${job.id}/file?kind=result`} alt="개선 결과" className="aspect-video w-full rounded-xl object-contain bg-black" /></> : <><video src={`/api/jobs/${job.id}/file?kind=original`} controls className="aspect-video w-full rounded-xl bg-black" /><video src={`/api/jobs/${job.id}/file?kind=result`} controls className="aspect-video w-full rounded-xl bg-black" /></>}</div><div className="mt-4 flex gap-2"><a href={`/compare/${job.id}`} className="rounded-full bg-[#3867ff] px-5 py-3 text-xs font-black">결과 비교</a><a href={`/api/jobs/${job.id}/download`} className="flex items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-xs font-black"><Download className="size-4" />다운로드</a></div></div>}
   </div>;
 }

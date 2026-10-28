@@ -23,7 +23,14 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         }
       }
     }
-    const progress = mapped === 'succeeded' ? 100 : mapped === 'processing' ? Math.max(Number(job.progress || 5), 35) : 0;
+    const currentProgress = Number(job.progress || 5);
+    const progress = mapped === 'succeeded'
+      ? 100
+      : mapped === 'processing'
+        ? prediction.status === 'starting'
+          ? Math.min(30, Math.max(12, currentProgress + 3))
+          : Math.min(92, Math.max(35, currentProgress + 4))
+        : 0;
     await db().prepare('UPDATE processing_jobs SET status = ?, progress = ?, result_r2_key = COALESCE(?, result_r2_key), error_message = ?, completed_at = CASE WHEN ? IN (\'succeeded\', \'failed\', \'canceled\') THEN CURRENT_TIMESTAMP ELSE completed_at END WHERE id = ?')
       .bind(mapped, progress, resultKey, prediction.error || null, mapped, id).run();
     job = await findOwnedJob(request, id) || job;

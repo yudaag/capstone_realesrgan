@@ -2,7 +2,7 @@ import { Layers3 } from 'lucide-react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { currentUserFromCookie, db } from '@/lib/auth';
-import { JobActions } from '@/components/job-actions';
+import { JobHistoryList } from '@/components/job-history-list';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,20 +22,6 @@ type Job = {
   created_at: string;
   error_message: string | null;
 };
-
-const statusLabel: Record<Job['status'], string> = {
-  pending: '대기 중', processing: '처리 중', succeeded: '완료', failed: '실패', canceled: '취소됨',
-};
-
-function resolution(job: Job) {
-  if (!job.source_width || !job.source_height) return '해상도 확인 중';
-  const source = `${job.source_width}×${job.source_height}`;
-  return job.result_width && job.result_height ? `${source} → ${job.result_width}×${job.result_height}` : source;
-}
-
-function dateText(value: string) {
-  return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Seoul' }).format(new Date(value));
-}
 
 export default async function MyPage({ searchParams }: { searchParams: Promise<{ media?: string; q?: string; sort?: string }> }) {
   const cookieStore = await cookies();
@@ -83,14 +69,7 @@ export default async function MyPage({ searchParams }: { searchParams: Promise<{
       <section className="mt-16">
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center"><h2 className="text-2xl font-black">처리 이력</h2><form className="flex flex-wrap gap-2 text-xs font-bold"><select name="media" defaultValue={filters.media || ''} className="rounded-full border border-white/15 bg-black px-4 py-2.5"><option value="">전체</option><option value="image">이미지</option><option value="video">영상</option></select><select name="sort" defaultValue={filters.sort || 'latest'} className="rounded-full border border-white/15 bg-black px-4 py-2.5"><option value="latest">최신순</option><option value="oldest">오래된순</option></select><input name="q" defaultValue={filters.q || ''} placeholder="파일명 검색" className="rounded-full border border-white/15 bg-black px-4 py-2.5 outline-none focus:border-[#5278ff]" /><button className="rounded-full bg-[#3867ff] px-5 py-2.5">검색</button></form></div>
 
-        <div className="mt-6 space-y-3">
-          {jobs.length === 0 && <div className="rounded-2xl border border-dashed border-white/15 px-6 py-20 text-center"><p className="font-bold">아직 처리 이력이 없습니다.</p><a href="/#service" className="mt-5 inline-block rounded-full bg-[#3867ff] px-6 py-3 text-sm font-bold">첫 화질 개선 시작하기</a></div>}
-          {jobs.map((job) => <article key={job.id} className="grid gap-5 rounded-2xl border border-white/10 bg-[#0b0b0d] p-5 md:grid-cols-[minmax(0,1fr)_170px_170px] md:items-center">
-            <div className="min-w-0"><div className="flex items-center gap-2"><span className="rounded-full border border-[#4565c5] bg-[#111c3e] px-2.5 py-1 text-[10px] font-bold text-[#8fa8ff]">{job.category === 'anime' ? '애니 · 일러스트' : '풍경 · 실사'}</span><span className="text-[10px] text-white/40">{job.media_type === 'image' ? '이미지' : '영상'}</span></div><h3 className="mt-3 truncate font-extrabold">{job.original_name}</h3><p className="mt-2 text-xs text-white/38">{resolution(job)}{job.duration_seconds ? ` · ${job.duration_seconds}초` : ''}</p></div>
-            <div><p className="text-[10px] text-white/35">처리 일시</p><p className="mt-2 text-xs font-bold">{dateText(job.created_at)}</p><p className={`mt-3 text-xs font-black ${job.status === 'succeeded' ? 'text-emerald-400' : job.status === 'failed' ? 'text-red-400' : 'text-[#6f91ff]'}`}>{statusLabel[job.status]}{job.status === 'processing' ? ` ${job.progress}%` : ''}</p>{job.status === 'processing' && <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-[#3867ff]" style={{ width: `${job.progress}%` }} /></div>}</div>
-            <JobActions id={job.id} status={job.status} />
-          </article>)}
-        </div>
+        <div className="mt-6 space-y-3"><JobHistoryList jobs={jobs} /></div>
       </section>
     </div>
   </main>;
