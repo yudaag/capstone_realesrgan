@@ -152,9 +152,6 @@ class Predictor(BasePredictor):
         pipeline.UPSCALE = scale
         pipeline.MAKE_LOW_RESOLUTION = False
         pipeline.SAVE_DEBUG_VIDEO = False
-        # 애니·일러스트는 선명한 선을 보존하도록 깊이 기반 블러를 끈다.
-        # 풍경·실사는 기존 노트북의 깊이 기반 후처리를 유지한다.
-        pipeline.APPLY_DEPTH_BLUR = category != "anime"
 
         result_path, _ = pipeline.process_media(str(input_path), str(work_dir))
         result_path = SystemPath(result_path)

@@ -129,11 +129,6 @@ USE_OPTICAL_FLOW = True
 # Debug video 저장
 SAVE_DEBUG_VIDEO = False
 
-# 애니·일러스트는 선명한 외곽선을 보존하기 위해 깊이 기반 블러 합성을
-# 건너뛸 수 있다. predict.py에서 선택한 카테고리에 맞게 설정한다.
-APPLY_DEPTH_BLUR = True
-
-
 # ============================================================
 # 3. 지원 확장자
 # ============================================================
@@ -1237,19 +1232,15 @@ def process_core(
     ]
 
 
-    if APPLY_DEPTH_BLUR:
-        I_final = (
-            (1.0 - A)
-            *
-            I_sr_f
-            +
-            A
-            *
-            I_blur
-        )
-    else:
-        # 애니·일러스트는 Real-ESRGAN의 선명한 결과를 그대로 사용한다.
-        I_final = I_sr_f.copy()
+    I_final = (
+        (1.0 - A)
+        *
+        I_sr_f
+        +
+        A
+        *
+        I_blur
+    )
 
 
     I_final = np.clip(
