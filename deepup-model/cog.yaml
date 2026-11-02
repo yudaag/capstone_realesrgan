@@ -8,6 +8,7 @@ build:
     - "wget"
     - "libgl1"
     - "libglib2.0-0"
+    - "ffmpeg"
   run:
     - "git clone --depth 1 https://github.com/XPixelGroup/BasicSR.git /src/BasicSR"
     - "printf '__version__ = \"1.4.2\"\\n__gitsha__ = \"unknown\"\\nversion_info = (1, 4, 2)\\n' > /src/BasicSR/basicsr/version.py"
