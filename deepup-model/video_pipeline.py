@@ -19,10 +19,8 @@ VIDEO_STRUCTURE_ALPHA = 0.70
 VIDEO_BLUR_ALPHA = 0.80
 SCENE_CUT_THRESHOLD = 0.30
 USE_OPTICAL_FLOW = True
-# Screen recordings are often already 2K/4K. Enlarging every side by four can
-# create a 12K-16K stream that OpenCV's MP4 encoder cannot open and that is not
-# practical to process on a T4. Keep the final video's longest side within 4K
-# while preserving the aspect ratio and the selected Real-ESRGAN scale.
+# The original Colab pipeline downsamples video frames before x4 restoration.
+# MAX_OUTPUT_SIDE remains as a safety limit when low-resolution mode is off.
 MAX_OUTPUT_SIDE = 3840
 
 
@@ -192,10 +190,14 @@ def _mux_original_audio(original_path, silent_path, output_path):
 def _processing_size(width, height):
     if width <= 0 or height <= 0:
         raise ValueError("동영상 해상도를 확인할 수 없습니다.")
-    max_input_side = max(2, MAX_OUTPUT_SIDE // image_core.UPSCALE)
-    ratio = min(1.0, max_input_side / max(width, height))
-    process_width = max(2, int(round(width * ratio)))
-    process_height = max(2, int(round(height * ratio)))
+    if image_core.MAKE_LOW_RESOLUTION:
+        process_width = max(2, width // image_core.DOWNSCALE)
+        process_height = max(2, height // image_core.DOWNSCALE)
+    else:
+        max_input_side = max(2, MAX_OUTPUT_SIDE // image_core.UPSCALE)
+        ratio = min(1.0, max_input_side / max(width, height))
+        process_width = max(2, int(round(width * ratio)))
+        process_height = max(2, int(round(height * ratio)))
     # yuv420/mp4 encoders require even dimensions.
     process_width -= process_width % 2
     process_height -= process_height % 2

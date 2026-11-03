@@ -145,13 +145,16 @@ class Predictor(BasePredictor):
             selected_upsampler,
         )
 
-        image_pipeline.UPSCALE = scale
         image_pipeline.DOWNSCALE = 8
 
         if extension in video_pipeline.VIDEO_EXTENSIONS:
-            image_pipeline.MAKE_LOW_RESOLUTION = False
+            # Match the original Colab notebook: reduce each frame to 1/8,
+            # then run Real-ESRGAN x4. This keeps video inference practical.
+            image_pipeline.UPSCALE = 4
+            image_pipeline.MAKE_LOW_RESOLUTION = True
             result_path = video_pipeline.process_video(str(input_path), str(work_dir))
         else:
+            image_pipeline.UPSCALE = scale
             image_pipeline.MAKE_LOW_RESOLUTION = category == "anime"
             result_path = image_pipeline.process_image(str(input_path), str(work_dir))
         return Path(str(result_path))
