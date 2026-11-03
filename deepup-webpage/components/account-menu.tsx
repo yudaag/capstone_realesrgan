@@ -11,6 +11,10 @@ export function AccountMenu() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    if (sessionStorage.getItem('deepup_browser_session') !== 'active') {
+      setUser(null);
+      return;
+    }
     fetch('/api/auth/me', { credentials: 'include' })
       .then((res) => res.json())
       .then((data: { user: User | null }) => setUser(data.user))
@@ -25,15 +29,26 @@ export function AccountMenu() {
     window.location.href = '/';
   }
 
+  function guardProcessing(event: React.MouseEvent<HTMLAnchorElement>) {
+    const startedAt = Number(localStorage.getItem('deepup_processing_lock') || 0);
+    if (!startedAt || Date.now() - startedAt > 2 * 60 * 60 * 1000) {
+      localStorage.removeItem('deepup_processing_lock');
+      return;
+    }
+    event.preventDefault();
+    setOpen(false);
+    window.alert('화질 개선이 진행 중입니다. 작업이 완료된 후 마이페이지로 이동해 주세요.');
+  }
+
   return <div className="relative">
     <button onClick={() => setOpen(!open)} className="flex items-center gap-2 rounded-full border border-white/20 bg-white/[.06] py-1.5 pl-1.5 pr-3 text-xs font-bold">
       <span className="grid size-7 place-items-center rounded-full bg-[#275cff]"><UserRound className="size-3.5" /></span>
       <span>{user.username}</span>
       <span className="text-[9px] text-white/40">{user.role === 'admin' ? '관리자' : '회원'}</span>
     </button>
-    {open && <div className="absolute right-0 top-12 z-50 w-48 overflow-hidden rounded-xl border border-white/12 bg-[#111114] p-1.5 shadow-2xl">
+    {open && <div className="deepup-menu absolute right-0 top-12 z-50 w-48 overflow-hidden rounded-xl border border-white/12 bg-[#111114] p-1.5 shadow-2xl">
       <div className="border-b border-white/8 px-3 py-2.5"><p className="text-xs font-bold">{user.username}</p><p className="mt-1 text-[10px] text-white/40">{user.role === 'admin' ? '관리자 계정' : 'DeepUp 회원'}</p></div>
-      <Link href="/mypage" className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold hover:bg-white/8"><History className="size-4 text-[#7895ff]" />마이페이지</Link>
+      <Link href="/mypage" onClick={guardProcessing} className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold hover:bg-white/8"><History className="size-4 text-[#7895ff]" />마이페이지</Link>
       {user.role === 'admin' && <Link href="/admin" className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold hover:bg-white/8"><ShieldCheck className="size-4 text-[#7895ff]" />관리자 페이지</Link>}
       <button onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold text-red-300 hover:bg-white/8"><LogOut className="size-4" />로그아웃</button>
     </div>}

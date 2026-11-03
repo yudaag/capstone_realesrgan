@@ -23,15 +23,60 @@
   --input: #dfe5ee; --ring: #1957e8; --radius: .75rem;
 }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { margin: 0; background: #000; color: #fff; font-family: var(--font-geist-sans), Arial, sans-serif; }
+html { scroll-behavior: smooth; scroll-padding-top: 88px; }
+body { margin: 0; overflow-x: hidden; background: #000; color: #fff; font-family: var(--font-geist-sans), Arial, sans-serif; }
 button, a { -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --motion-natural: cubic-bezier(.22, 1, .36, 1);
+  --motion-soft: cubic-bezier(.4, 0, .2, 1);
+}
+
+@keyframes deepup-page-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes deepup-reveal {
+  from { opacity: 0; transform: translateY(14px) scale(.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes deepup-menu-in {
+  from { opacity: 0; transform: translateY(-7px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+body > main { animation: deepup-page-in .48s var(--motion-natural) both; }
+.deepup-reveal { animation: deepup-reveal .48s var(--motion-natural) both; }
+.deepup-menu { transform-origin: top right; animation: deepup-menu-in .24s var(--motion-natural) both; }
+
+a, button, input, textarea, select, .theme-toggle {
+  transition-timing-function: var(--motion-natural) !important;
+}
+a, button, .theme-toggle {
+  transition-property: color, background-color, border-color, opacity, box-shadow, transform, filter;
+  transition-duration: .24s;
+}
+button:not(:disabled):active, a:active, .theme-toggle:active { transform: scale(.975); }
+button:disabled { transition-duration: .18s; }
+article { transition-duration: .32s !important; transition-timing-function: var(--motion-natural) !important; }
+img, video { transition: opacity .35s var(--motion-soft), filter .35s var(--motion-soft); }
 .depth-overlay { background: radial-gradient(ellipse at 22% 70%, rgba(255,51,146,.9) 0 12%, transparent 29%), radial-gradient(ellipse at 50% 45%, rgba(255,182,45,.76) 0 17%, transparent 38%), radial-gradient(ellipse at 79% 36%, rgba(42,219,218,.82) 0 20%, transparent 47%), linear-gradient(105deg, rgba(108,45,255,.75), rgba(35,172,255,.72)); }
 .depth-mini { background: linear-gradient(135deg, #6d32e9 0%, #f34a9c 42%, #f6bd4e 68%, #2ad8d6 100%); }
 ::selection { background: #cbd9ff; color: #143999; }
 .hero-glow { background: radial-gradient(circle at 73% 38%, rgba(39,92,255,.16), transparent 34%), radial-gradient(circle at 12% 70%, rgba(78,38,178,.11), transparent 28%); }
 .theme-toggle { position: fixed; z-index: 100; right: 22px; bottom: 22px; display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 15px; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; background: rgba(18,18,20,.88); color: #fff; box-shadow: 0 10px 35px rgba(0,0,0,.28); backdrop-filter: blur(14px); font-size: 12px; font-weight: 800; cursor: pointer; }
+.theme-toggle:hover { transform: translateY(-2px); box-shadow: 0 14px 40px rgba(0,0,0,.36); }
 .theme-toggle svg { width: 16px; height: 16px; }
 html[data-theme='light'] { filter: invert(1) hue-rotate(180deg); background: #fff; }
 html[data-theme='light'] img,
 html[data-theme='light'] video { filter: invert(1) hue-rotate(180deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}

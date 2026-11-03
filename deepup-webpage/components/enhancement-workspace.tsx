@@ -10,6 +10,7 @@ type Category = 'photo' | 'anime';
 type ActiveJob = { id: string; mediaType: 'image' | 'video'; name: string; category: Category };
 
 const ACTIVE_JOB_KEY = 'deepup_active_job';
+const PROCESSING_LOCK_KEY = 'deepup_processing_lock';
 
 export function EnhancementWorkspace() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -38,10 +39,14 @@ export function EnhancementWorkspace() {
           setStage('진행 중인 작업을 다시 불러오는 중');
           setStageProgress(5);
           setBusy(true);
+          localStorage.setItem(PROCESSING_LOCK_KEY, String(Date.now()));
           void poll(active.id, active.mediaType).catch((error) => {
             if (!aliveRef.current) return;
             setStage(error instanceof Error ? error.message : '작업 상태를 확인하지 못했습니다.');
-          }).finally(() => { if (aliveRef.current) setBusy(false); });
+          }).finally(() => {
+            localStorage.removeItem(PROCESSING_LOCK_KEY);
+            if (aliveRef.current) setBusy(false);
+          });
         }
       } catch {
         localStorage.removeItem(ACTIVE_JOB_KEY);
@@ -82,6 +87,7 @@ export function EnhancementWorkspace() {
   async function run() {
     if (!file || busy) return;
     setBusy(true);
+    localStorage.setItem(PROCESSING_LOCK_KEY, String(Date.now()));
     try {
       const contentType = mediaContentType(file.name, file.type);
       setStageProgress(8); setStage('R2 업로드 주소 생성 중');
@@ -105,7 +111,7 @@ export function EnhancementWorkspace() {
       setStageProgress(32); setJob({ id: created.id, status: created.status, progress: 5, media_type: upload.mediaType });
       await poll(created.id, upload.mediaType);
     } catch (error) { setStageProgress(0); setStage(error instanceof Error ? error.message : '처리에 실패했습니다.'); }
-    finally { setBusy(false); }
+    finally { localStorage.removeItem(PROCESSING_LOCK_KEY); setBusy(false); }
   }
 
   const finished = job?.status === 'succeeded';
@@ -124,7 +130,7 @@ export function EnhancementWorkspace() {
       <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" className="hidden" onChange={(event) => void choose(event.target.files?.[0])} />
       <div className="flex flex-col items-center text-center"><ImageUp className="size-10 text-white/90" strokeWidth={1.6} /><div className="mt-5 rounded-full bg-[#3867ff] px-7 py-3.5 text-sm font-extrabold shadow-[0_10px_30px_rgba(39,92,255,.35)]">이미지·동영상 업로드</div><p className="mt-5 text-lg font-bold">또는 여기에 끌어다 놓으세요</p><p className="mt-3 text-xs leading-5 text-white/45">{user ? 'JPG, PNG, WEBP, MP4, MOV · 최대 500MB' : '비로그인 체험 · 이미지 전용 · 최대 10MB'}</p></div>
     </div>
-    {displayedName && <div className="mt-5 rounded-2xl border border-white/10 bg-white/[.04] p-5"><div className="flex items-center justify-between gap-4"><div className="min-w-0"><p className="truncate text-sm font-bold">{displayedName}</p><p className="mt-1 text-xs text-white/40">{displayedSize}{stage}</p></div>{file && !finished && <button onClick={run} disabled={busy} className="flex shrink-0 items-center gap-2 rounded-full bg-[#3867ff] px-5 py-3 text-xs font-black disabled:opacity-50">{busy ? <LoaderCircle className="size-4 animate-spin" /> : <Sparkles className="size-4" />}화질 개선</button>}</div>{(busy || stageProgress > 0) && <div className="mt-5"><div className="mb-2 flex items-center justify-between text-[11px] font-bold"><span className="text-white/45">{stage}</span><span className="text-[#8fa8ff]">{Math.round(stageProgress)}%</span></div><div className="h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-[#315fff] to-[#7997ff] shadow-[0_0_16px_rgba(82,120,255,.65)] transition-[width] duration-700 ease-out" style={{ width: `${Math.min(100, Math.max(0, stageProgress))}%` }} /></div></div>}</div>}
-    {finished && job && <div className="mt-5 overflow-hidden rounded-2xl border border-[#5278ff] bg-[#090d1b] p-5"><div className="grid gap-3 sm:grid-cols-2">{job.media_type === 'image' ? <><img src={`/api/jobs/${job.id}/file?kind=original`} alt="원본" className="aspect-video w-full rounded-xl object-contain bg-black" /><img src={`/api/jobs/${job.id}/file?kind=result`} alt="개선 결과" className="aspect-video w-full rounded-xl object-contain bg-black" /></> : <><video src={`/api/jobs/${job.id}/file?kind=original`} controls className="aspect-video w-full rounded-xl bg-black" /><video src={`/api/jobs/${job.id}/file?kind=result`} controls className="aspect-video w-full rounded-xl bg-black" /></>}</div><div className="mt-4 flex gap-2"><a href={`/compare/${job.id}`} className="rounded-full bg-[#3867ff] px-5 py-3 text-xs font-black">결과 비교</a><a href={`/api/jobs/${job.id}/download`} className="flex items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-xs font-black"><Download className="size-4" />다운로드</a></div></div>}
+    {displayedName && <div className="deepup-reveal mt-5 rounded-2xl border border-white/10 bg-white/[.04] p-5"><div className="flex items-center justify-between gap-4"><div className="min-w-0"><p className="truncate text-sm font-bold">{displayedName}</p><p className="mt-1 text-xs text-white/40">{displayedSize}{stage}</p></div>{file && !finished && <button onClick={run} disabled={busy} className="flex shrink-0 items-center gap-2 rounded-full bg-[#3867ff] px-5 py-3 text-xs font-black disabled:opacity-50">{busy ? <LoaderCircle className="size-4 animate-spin" /> : <Sparkles className="size-4" />}화질 개선</button>}</div>{(busy || stageProgress > 0) && <div className="mt-5"><div className="mb-2 flex items-center justify-between text-[11px] font-bold"><span className="text-white/45">{stage}</span><span className="text-[#8fa8ff]">{Math.round(stageProgress)}%</span></div><div className="h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-[#315fff] to-[#7997ff] shadow-[0_0_16px_rgba(82,120,255,.65)] transition-[width] duration-700 ease-out" style={{ width: `${Math.min(100, Math.max(0, stageProgress))}%` }} /></div></div>}</div>}
+    {finished && job && <div className="deepup-reveal mt-5 overflow-hidden rounded-2xl border border-[#5278ff] bg-[#090d1b] p-5"><div className="grid gap-3 sm:grid-cols-2">{job.media_type === 'image' ? <><img src={`/api/jobs/${job.id}/file?kind=original`} alt="원본" className="aspect-video w-full rounded-xl object-contain bg-black" /><img src={`/api/jobs/${job.id}/file?kind=result`} alt="개선 결과" className="aspect-video w-full rounded-xl object-contain bg-black" /></> : <><video src={`/api/jobs/${job.id}/file?kind=original`} controls className="aspect-video w-full rounded-xl bg-black" /><video src={`/api/jobs/${job.id}/file?kind=result`} controls className="aspect-video w-full rounded-xl bg-black" /></>}</div><div className="mt-4 flex gap-2"><a href={`/compare/${job.id}`} className="rounded-full bg-[#3867ff] px-5 py-3 text-xs font-black">결과 비교</a><a href={`/api/jobs/${job.id}/download`} className="flex items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-xs font-black"><Download className="size-4" />다운로드</a></div></div>}
   </div>;
 }
