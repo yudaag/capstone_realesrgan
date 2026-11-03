@@ -1,6 +1,6 @@
 'use client';
 
-import { Trash2 } from 'lucide-react';
+import { Check, Pencil, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { JobActions } from '@/components/job-actions';
 
@@ -34,9 +34,13 @@ function dateText(value: string) {
 }
 
 export function JobHistoryList({ jobs }: { jobs: Job[] }) {
+  const [items, setItems] = useState(jobs);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
-  const allSelected = jobs.length > 0 && selected.size === jobs.length;
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftName, setDraftName] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const allSelected = items.length > 0 && selected.size === items.length;
   const selectedCount = selected.size;
   const selectedIds = useMemo(() => Array.from(selected), [selected]);
 
@@ -50,7 +54,33 @@ export function JobHistoryList({ jobs }: { jobs: Job[] }) {
   }
 
   function toggleAll() {
-    setSelected(allSelected ? new Set() : new Set(jobs.map((job) => job.id)));
+    setSelected(allSelected ? new Set() : new Set(items.map((job) => job.id)));
+  }
+
+  function startRename(job: Job) {
+    setEditingId(job.id);
+    setDraftName(job.original_name);
+  }
+
+  async function saveName(id: string) {
+    const name = draftName.trim();
+    if (!name || savingName) return;
+    setSavingName(true);
+    try {
+      const response = await fetch(`/api/jobs/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || '파일 이름을 변경하지 못했습니다.');
+      setItems((current) => current.map((job) => job.id === id ? { ...job, original_name: result.name } : job));
+      setEditingId(null);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '파일 이름을 변경하지 못했습니다.');
+    } finally {
+      setSavingName(false);
+    }
   }
 
   async function deleteSelected() {
@@ -73,7 +103,7 @@ export function JobHistoryList({ jobs }: { jobs: Job[] }) {
     window.location.reload();
   }
 
-  if (jobs.length === 0) return <div className="rounded-2xl border border-dashed border-white/15 px-6 py-20 text-center"><p className="font-bold">아직 처리 이력이 없습니다.</p><a href="/#service" className="mt-5 inline-block rounded-full bg-[#3867ff] px-6 py-3 text-sm font-bold">첫 화질 개선 시작하기</a></div>;
+  if (items.length === 0) return <div className="rounded-2xl border border-dashed border-white/15 px-6 py-20 text-center"><p className="font-bold">아직 처리 이력이 없습니다.</p><a href="/#service" className="mt-5 inline-block rounded-full bg-[#3867ff] px-6 py-3 text-sm font-bold">첫 화질 개선 시작하기</a></div>;
 
   return <>
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#0b0b0d] px-5 py-3.5">
@@ -89,11 +119,11 @@ export function JobHistoryList({ jobs }: { jobs: Job[] }) {
       </div>
     </div>
 
-    {jobs.map((job) => <article key={job.id} className={`grid gap-5 rounded-2xl border bg-[#0b0b0d] p-5 transition md:grid-cols-[36px_minmax(0,1fr)_170px_170px] md:items-center ${selected.has(job.id) ? 'border-[#5278ff] bg-[#0d1222]' : 'border-white/10'}`}>
+    {items.map((job) => <article key={job.id} className={`grid gap-5 rounded-2xl border bg-[#0b0b0d] p-5 transition md:grid-cols-[36px_minmax(0,1fr)_170px_170px] md:items-center ${selected.has(job.id) ? 'border-[#5278ff] bg-[#0d1222]' : 'border-white/10'}`}>
       <label className="flex cursor-pointer items-center md:justify-center" aria-label={`${job.original_name} 선택`}>
         <input type="checkbox" checked={selected.has(job.id)} onChange={() => toggle(job.id)} className="size-4 accent-[#3867ff]" />
       </label>
-      <div className="min-w-0"><div className="flex items-center gap-2"><span className="rounded-full border border-[#4565c5] bg-[#111c3e] px-2.5 py-1 text-[10px] font-bold text-[#8fa8ff]">{job.category === 'anime' ? '애니 · 일러스트' : '풍경 · 실사'}</span><span className="text-[10px] text-white/40">{job.media_type === 'image' ? '이미지' : '영상'}</span></div><h3 className="mt-3 truncate font-extrabold">{job.original_name}</h3><p className="mt-2 text-xs text-white/38">{resolution(job)}{job.duration_seconds ? ` · ${job.duration_seconds}초` : ''}</p></div>
+      <div className="min-w-0"><div className="flex items-center gap-2"><span className="rounded-full border border-[#4565c5] bg-[#111c3e] px-2.5 py-1 text-[10px] font-bold text-[#8fa8ff]">{job.category === 'anime' ? '애니 · 일러스트' : '풍경 · 실사'}</span><span className="text-[10px] text-white/40">{job.media_type === 'image' ? '이미지' : '영상'}</span></div>{editingId === job.id ? <div className="mt-3 flex items-center gap-2"><input autoFocus value={draftName} maxLength={200} onChange={(event) => setDraftName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void saveName(job.id); if (event.key === 'Escape') setEditingId(null); }} className="min-w-0 flex-1 rounded-lg border border-[#5278ff] bg-black/40 px-3 py-2 text-sm font-bold outline-none" aria-label="새 파일 이름" /><button type="button" disabled={savingName || !draftName.trim()} onClick={() => void saveName(job.id)} aria-label="파일 이름 저장" className="rounded-lg p-2 text-emerald-300 hover:bg-white/10 disabled:opacity-30"><Check className="size-4" /></button><button type="button" disabled={savingName} onClick={() => setEditingId(null)} aria-label="파일 이름 변경 취소" className="rounded-lg p-2 text-white/50 hover:bg-white/10"><X className="size-4" /></button></div> : <div className="mt-3 flex min-w-0 items-center gap-2"><h3 className="truncate font-extrabold">{job.original_name}</h3><button type="button" onClick={() => startRename(job)} aria-label={`${job.original_name} 이름 변경`} className="shrink-0 rounded-lg p-1.5 text-white/35 transition hover:bg-white/10 hover:text-white"><Pencil className="size-3.5" /></button></div>}<p className="mt-2 text-xs text-white/38">{resolution(job)}{job.duration_seconds ? ` · ${job.duration_seconds}초` : ''}</p></div>
       <div><p className="text-[10px] text-white/35">처리 일시</p><p className="mt-2 text-xs font-bold">{dateText(job.created_at)}</p><p className={`mt-3 text-xs font-black ${job.status === 'succeeded' ? 'text-emerald-400' : job.status === 'failed' ? 'text-red-400' : 'text-[#6f91ff]'}`}>{statusLabel[job.status]}{job.status === 'processing' ? ` ${job.progress}%` : ''}</p>{job.status === 'processing' && <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-[#3867ff]" style={{ width: `${job.progress}%` }} /></div>}</div>
       <JobActions id={job.id} status={job.status} />
     </article>)}
