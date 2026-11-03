@@ -84,4 +84,6 @@ export async function bootstrapAdmin() {
   return { created: true };
 }
 
-export const sessionCookie = (id: string) => `deepup_session=${id}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`;
+// 세션 쿠키로 저장해 브라우저를 사용하는 동안에는 로그인을 유지하고,
+// 브라우저를 완전히 종료하면 로그인 정보가 남지 않게 한다.
+export const sessionCookie = (id: string) => `deepup_session=${id}; Path=/; HttpOnly; Secure; SameSite=Lax`;
