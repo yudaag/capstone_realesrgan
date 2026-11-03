@@ -31,7 +31,8 @@ export function AccountMenu() {
 
   function guardProcessing(event: React.MouseEvent<HTMLAnchorElement>) {
     const startedAt = Number(localStorage.getItem('deepup_processing_lock') || 0);
-    if (!startedAt || Date.now() - startedAt > 2 * 60 * 60 * 1000) {
+    const activeJob = localStorage.getItem('deepup_active_job');
+    if (!activeJob || !startedAt || Date.now() - startedAt > 2 * 60 * 60 * 1000) {
       localStorage.removeItem('deepup_processing_lock');
       return;
     }
