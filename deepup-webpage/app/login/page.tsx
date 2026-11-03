@@ -47,6 +47,7 @@ export default function LoginPage() {
         setError(body.error || '계정 처리 중 오류가 발생했습니다.');
         return;
       }
+      sessionStorage.setItem('deepup_browser_session', 'active');
       window.location.href = body.role === 'admin' ? '/admin' : '/';
     } catch {
       setError('서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');

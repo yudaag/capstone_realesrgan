@@ -27,7 +27,7 @@ export function EnhancementWorkspace() {
   useEffect(() => { fetch('/api/auth/me').then((r) => r.json()).then((d) => setUser(d.user || null)); }, []);
   useEffect(() => {
     aliveRef.current = true;
-    const saved = sessionStorage.getItem(ACTIVE_JOB_KEY);
+    const saved = localStorage.getItem(ACTIVE_JOB_KEY);
     if (saved) {
       try {
         const active = JSON.parse(saved) as ActiveJob;
@@ -44,7 +44,7 @@ export function EnhancementWorkspace() {
           }).finally(() => { if (aliveRef.current) setBusy(false); });
         }
       } catch {
-        sessionStorage.removeItem(ACTIVE_JOB_KEY);
+        localStorage.removeItem(ACTIVE_JOB_KEY);
       }
     }
     return () => { aliveRef.current = false; };
@@ -72,8 +72,8 @@ export function EnhancementWorkspace() {
       if (!response.ok) throw new Error(data.error || '상태 확인 실패');
       if (!aliveRef.current) return;
       setJob(data.job); setStageProgress(Number(data.job.progress || 0)); setStage(data.job.status === 'processing' ? 'AI 화질 개선 처리 중' : data.job.status);
-      if (data.job.status === 'succeeded') { sessionStorage.removeItem(ACTIVE_JOB_KEY); setStageProgress(100); setStage('화질 개선이 완료되었습니다.'); return; }
-      if (data.job.status === 'failed' || data.job.status === 'canceled') { sessionStorage.removeItem(ACTIVE_JOB_KEY); throw new Error(data.job.error_message || '처리에 실패했습니다.'); }
+      if (data.job.status === 'succeeded') { localStorage.removeItem(ACTIVE_JOB_KEY); setStageProgress(100); setStage('화질 개선이 완료되었습니다.'); return; }
+      if (data.job.status === 'failed' || data.job.status === 'canceled') { localStorage.removeItem(ACTIVE_JOB_KEY); throw new Error(data.job.error_message || '처리에 실패했습니다.'); }
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
     throw new Error('처리 시간이 길어지고 있습니다. 마이페이지에서 상태를 확인해 주세요.');
@@ -100,7 +100,7 @@ export function EnhancementWorkspace() {
       const created = await create.json();
       if (!create.ok) throw new Error(created.error || 'AI 작업 생성 실패');
       const active: ActiveJob = { id: created.id, mediaType: upload.mediaType, name: file.name, category };
-      sessionStorage.setItem(ACTIVE_JOB_KEY, JSON.stringify(active));
+      localStorage.setItem(ACTIVE_JOB_KEY, JSON.stringify(active));
       setActiveName(file.name);
       setStageProgress(32); setJob({ id: created.id, status: created.status, progress: 5, media_type: upload.mediaType });
       await poll(created.id, upload.mediaType);

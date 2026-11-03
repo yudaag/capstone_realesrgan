@@ -1,6 +1,7 @@
 import { ArrowRight, BarChart3, Layers3, ScanSearch, Sparkles } from 'lucide-react';
 import { AccountMenu } from '@/components/account-menu';
 import { EnhancementWorkspace } from '@/components/enhancement-workspace';
+import { ProjectVideo } from '@/components/project-video';
 
 export default function Home() {
   return (
@@ -41,7 +42,7 @@ export default function Home() {
               <span className="hidden rounded-full border border-white/15 px-3 py-1.5 text-[10px] font-bold text-white/55 sm:block">CAPSTONE</span>
             </div>
             <div className="relative aspect-video overflow-hidden rounded-[26px] border border-white/15 bg-[#101828] shadow-[0_30px_90px_rgba(0,0,0,.5)]">
-              <video src="/capstone-presentation.mp4" aria-label="캡스톤 프로젝트 발표 영상" className="h-full w-full object-contain" autoPlay muted loop playsInline controls />
+              <ProjectVideo />
             </div>
             <p className="mt-4 text-xs leading-5 text-white/40">깊이 정보를 활용한 선택적 화질 개선 프로젝트의 기획 배경과 구현 방향을 소개합니다.</p>
           </div>
