@@ -1,0 +1,76 @@
+import { Layers3 } from 'lucide-react';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { currentUserFromCookie, db } from '@/lib/auth';
+import { JobHistoryList } from '@/components/job-history-list';
+
+export const dynamic = 'force-dynamic';
+
+type Job = {
+  id: string;
+  media_type: 'image' | 'video';
+  category: string;
+  original_name: string;
+  status: 'pending' | 'processing' | 'succeeded' | 'failed' | 'canceled';
+  progress: number;
+  file_size: number;
+  source_width: number | null;
+  source_height: number | null;
+  result_width: number | null;
+  result_height: number | null;
+  duration_seconds: number | null;
+  created_at: string;
+  error_message: string | null;
+};
+
+export default async function MyPage({ searchParams }: { searchParams: Promise<{ media?: string; q?: string; sort?: string }> }) {
+  const cookieStore = await cookies();
+  const cookie = cookieStore.getAll().map(({ name, value }) => `${name}=${value}`).join('; ');
+  const user = await currentUserFromCookie(cookie);
+  if (!user) redirect('/login');
+
+  const filters = await searchParams;
+  let jobs: Job[] = [];
+  try {
+    let sql = 'SELECT * FROM processing_jobs WHERE user_id = ?';
+    const values: unknown[] = [user.id];
+    if (filters.media === 'image' || filters.media === 'video') { sql += ' AND media_type = ?'; values.push(filters.media); }
+    if (filters.q?.trim()) { sql += ' AND original_name LIKE ?'; values.push(`%${filters.q.trim()}%`); }
+    sql += filters.sort === 'oldest' ? ' ORDER BY created_at ASC LIMIT 50' : ' ORDER BY created_at DESC LIMIT 50';
+    const result = await db().prepare(sql).bind(...values).all<Job>();
+    jobs = result.results;
+  } catch {
+    // 첫 배포에서 0002 마이그레이션을 적용하기 전에도 빈 화면을 안전하게 표시한다.
+  }
+
+  const completed = jobs.filter((job) => job.status === 'succeeded').length;
+  const active = jobs.filter((job) => job.status === 'pending' || job.status === 'processing').length;
+  const storedBytes = jobs.reduce((sum, job) => sum + (job.file_size || 0), 0);
+  const storedGb = storedBytes / 1024 / 1024 / 1024;
+
+  return <main className="min-h-screen bg-black text-white">
+    <header className="border-b border-white/10 bg-[#080808]">
+      <div className="mx-auto flex h-[72px] max-w-[1600px] items-center justify-between px-6 lg:px-12">
+        <a href="/" className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-lg bg-[#275cff]"><Layers3 className="size-5" /></span><span className="text-lg font-black">DeepUp</span></a>
+        <nav className="flex items-center gap-2 text-xs font-bold"><a href="/#service" className="rounded-full border border-white/15 px-5 py-2.5">화질 개선</a><span className="rounded-full border border-[#5278ff] bg-[#12204b] px-5 py-2.5 text-[#9bb0ff]">마이페이지</span><span className="hidden rounded-full border border-white/15 px-5 py-2.5 sm:block">{user.username}</span></nav>
+      </div>
+    </header>
+
+    <div className="mx-auto max-w-[1600px] px-6 py-16 lg:px-12 lg:py-20">
+      <p className="text-xs font-black tracking-[.22em] text-[#6f91ff]">MY PAGE</p>
+      <h1 className="mt-5 text-4xl font-black tracking-[-.05em] lg:text-5xl">내 <span className="text-[#5f83ff]">화질 개선</span> 작업 내역</h1>
+      <p className="mt-5 text-sm text-white/45">업로드한 이미지·영상의 처리 상태와 결과를 확인하고 다시 내려받을 수 있습니다.</p>
+
+      <section className="mt-12 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[['전체 작업', jobs.length, '건'], ['완료', completed, '건'], ['처리 중 / 대기', active, '건']].map(([label, value, unit]) => <article key={String(label)} className="rounded-2xl border border-white/10 bg-[#0b0b0d] p-7"><p className="text-xs font-bold text-white/45">{label}</p><p className="mt-6 text-3xl font-black">{value}<span className="ml-1 text-sm text-white/40">{unit}</span></p></article>)}
+        <article className="rounded-2xl border border-white/10 bg-[#0b0b0d] p-7"><p className="text-xs font-bold text-white/45">저장 공간</p><p className="mt-6 text-3xl font-black">{storedGb.toFixed(2)}<span className="ml-1 text-sm text-white/40">/ 5GB</span></p><div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-[#3867ff]" style={{ width: `${Math.min(100, storedGb / 5 * 100)}%` }} /></div></article>
+      </section>
+
+      <section className="mt-16">
+        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center"><h2 className="text-2xl font-black">처리 이력</h2><form className="flex flex-wrap gap-2 text-xs font-bold"><select name="media" defaultValue={filters.media || ''} className="rounded-full border border-white/15 bg-black px-4 py-2.5"><option value="">전체</option><option value="image">이미지</option><option value="video">영상</option></select><select name="sort" defaultValue={filters.sort || 'latest'} className="rounded-full border border-white/15 bg-black px-4 py-2.5"><option value="latest">최신순</option><option value="oldest">오래된순</option></select><input name="q" defaultValue={filters.q || ''} placeholder="파일명 검색" className="rounded-full border border-white/15 bg-black px-4 py-2.5 outline-none focus:border-[#5278ff]" /><button className="rounded-full bg-[#3867ff] px-5 py-2.5">검색</button></form></div>
+
+        <div className="mt-6 space-y-3"><JobHistoryList jobs={jobs} /></div>
+      </section>
+    </div>
+  </main>;
+}
