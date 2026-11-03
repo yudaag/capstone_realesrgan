@@ -47,3 +47,18 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   await db().prepare('DELETE FROM processing_jobs WHERE id = ?').bind(id).run();
   return Response.json({ ok: true });
 }
+
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
+  const job = await findOwnedJob(request, id);
+  if (!job) return Response.json({ error: '작업을 찾을 수 없습니다.' }, { status: 404 });
+
+  const body = await request.json().catch(() => null) as { name?: unknown } | null;
+  const name = typeof body?.name === 'string' ? body.name.trim() : '';
+  if (!name) return Response.json({ error: '파일 이름을 입력해 주세요.' }, { status: 400 });
+  if (name.length > 200) return Response.json({ error: '파일 이름은 200자 이하로 입력해 주세요.' }, { status: 400 });
+  if (/[\\/\u0000-\u001f\u007f]/.test(name)) return Response.json({ error: '파일 이름에 사용할 수 없는 문자가 포함되어 있습니다.' }, { status: 400 });
+
+  await db().prepare('UPDATE processing_jobs SET original_name = ? WHERE id = ?').bind(name, id).run();
+  return Response.json({ ok: true, name });
+}
