@@ -48,6 +48,7 @@ export default function LoginPage() {
         return;
       }
       sessionStorage.setItem('deepup_browser_session', 'active');
+      sessionStorage.setItem('deepup_allow_navigation_once', 'true');
       window.location.href = body.role === 'admin' ? '/admin' : '/';
     } catch {
       setError('서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');

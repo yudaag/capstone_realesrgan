@@ -4,12 +4,17 @@ import { useEffect } from 'react';
 
 const BROWSER_SESSION_KEY = 'deepup_browser_session';
 const BROWSER_EXIT_KEY = 'deepup_browser_exit';
+const ALLOW_NAVIGATION_KEY = 'deepup_allow_navigation_once';
 
 export function SessionGuard() {
   useEffect(() => {
     let active = true;
 
     const markBrowserExit = () => {
+      if (sessionStorage.getItem(ALLOW_NAVIGATION_KEY) === 'true') {
+        sessionStorage.removeItem(ALLOW_NAVIGATION_KEY);
+        return;
+      }
       sessionStorage.removeItem(BROWSER_SESSION_KEY);
       localStorage.setItem(BROWSER_EXIT_KEY, String(Date.now()));
     };
