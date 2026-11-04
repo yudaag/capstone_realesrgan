@@ -39,6 +39,7 @@ export default function LoginPage() {
       const response = await fetch(`/api/auth/${mode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ username: data.get('username'), password }),
         signal: controller.signal,
       });
