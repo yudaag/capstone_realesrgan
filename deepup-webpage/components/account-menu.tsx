@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { History, LogOut, Menu, ShieldCheck, UserRound } from 'lucide-react';
-import Link from 'next/link';
 
 type User = { username: string; role: string };
 
@@ -23,7 +22,7 @@ export function AccountMenu() {
   }, []);
 
   if (user === undefined) return <span className="h-9 w-24 animate-pulse rounded-full bg-white/10" />;
-  if (!user) return <Link href="/login" className="flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-xs font-bold"><Menu className="size-4" /> 로그인</Link>;
+  if (!user) return <a href="/login" className="flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-xs font-bold"><Menu className="size-4" /> 로그인</a>;
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
@@ -49,8 +48,8 @@ export function AccountMenu() {
     </button>
     {open && <div className="deepup-menu absolute right-0 top-12 z-50 w-48 overflow-hidden rounded-xl border border-white/12 bg-[#111114] p-1.5 shadow-2xl">
       <div className="border-b border-white/8 px-3 py-2.5"><p className="text-xs font-bold">{user.username}</p><p className="mt-1 text-[10px] text-white/40">{user.role === 'admin' ? '관리자 계정' : 'DeepUp 회원'}</p></div>
-      <Link href="/mypage" onClick={guardProcessing} className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold hover:bg-white/8"><History className="size-4 text-[#7895ff]" />마이페이지</Link>
-      {user.role === 'admin' && <Link href="/admin" className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold hover:bg-white/8"><ShieldCheck className="size-4 text-[#7895ff]" />관리자 페이지</Link>}
+      <a href="/mypage" onClick={guardProcessing} className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold hover:bg-white/8"><History className="size-4 text-[#7895ff]" />마이페이지</a>
+      {user.role === 'admin' && <a href="/admin" className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold hover:bg-white/8"><ShieldCheck className="size-4 text-[#7895ff]" />관리자 페이지</a>}
       <button onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold text-red-300 hover:bg-white/8"><LogOut className="size-4" />로그아웃</button>
     </div>}
     {processingNotice && <div className="fixed inset-0 z-[120] grid place-items-center bg-black/65 px-5 backdrop-blur-sm" onClick={() => setProcessingNotice(false)}>
