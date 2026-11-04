@@ -9,7 +9,7 @@ type User = { username: string; role: string };
 export function AccountMenu() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [open, setOpen] = useState(false);
-  const [notice, setNotice] = useState('');
+  const [processingNotice, setProcessingNotice] = useState(false);
 
   useEffect(() => {
     if (sessionStorage.getItem('deepup_browser_session') !== 'active') {
@@ -32,15 +32,13 @@ export function AccountMenu() {
 
   function guardProcessing(event: React.MouseEvent<HTMLAnchorElement>) {
     const startedAt = Number(localStorage.getItem('deepup_processing_lock') || 0);
-    const activeJob = localStorage.getItem('deepup_active_job');
-    if (!activeJob || !startedAt || Date.now() - startedAt > 2 * 60 * 60 * 1000) {
+    if (!startedAt || Date.now() - startedAt > 2 * 60 * 60 * 1000) {
       localStorage.removeItem('deepup_processing_lock');
       return;
     }
     event.preventDefault();
     setOpen(false);
-    setNotice('화질 개선이 진행 중입니다. 완료 후 마이페이지로 이동할 수 있습니다.');
-    window.setTimeout(() => setNotice(''), 3200);
+    setProcessingNotice(true);
   }
 
   return <div className="relative">
@@ -55,6 +53,13 @@ export function AccountMenu() {
       {user.role === 'admin' && <Link href="/admin" className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold hover:bg-white/8"><ShieldCheck className="size-4 text-[#7895ff]" />관리자 페이지</Link>}
       <button onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold text-red-300 hover:bg-white/8"><LogOut className="size-4" />로그아웃</button>
     </div>}
-    {notice && <div role="status" className="deepup-reveal fixed left-1/2 top-24 z-[120] w-[min(92vw,430px)] -translate-x-1/2 rounded-2xl border border-[#5278ff]/60 bg-[#10162b]/95 px-5 py-4 text-center text-xs font-bold text-white shadow-2xl backdrop-blur-xl">{notice}</div>}
+    {processingNotice && <div className="fixed inset-0 z-[120] grid place-items-center bg-black/65 px-5 backdrop-blur-sm" onClick={() => setProcessingNotice(false)}>
+      <div role="dialog" aria-modal="true" aria-labelledby="processing-dialog-title" className="deepup-reveal w-full max-w-sm rounded-3xl border border-[#5278ff]/50 bg-[#10131f] p-7 text-center shadow-[0_30px_100px_rgba(0,0,0,.65)]" onClick={(event) => event.stopPropagation()}>
+        <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-[#275cff]/20 text-[#88a1ff]"><History className="size-6" /></span>
+        <h2 id="processing-dialog-title" className="mt-5 text-xl font-black">화질 개선 중입니다</h2>
+        <p className="mt-3 text-sm leading-6 text-white/55">작업이 완료되면 마이페이지로 이동할 수 있습니다.</p>
+        <button type="button" autoFocus onClick={() => setProcessingNotice(false)} className="mt-6 w-full rounded-2xl bg-[#3867ff] px-5 py-3.5 text-sm font-black">확인</button>
+      </div>
+    </div>}
   </div>;
 }
