@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { ArrowLeft, ArrowRight, Eye, EyeOff, Layers3, ShieldCheck, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 
 type AuthMode = 'login' | 'signup';
 
@@ -62,24 +63,24 @@ export default function LoginPage() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050506] px-5 py-8 text-white sm:px-8 sm:py-12">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(42,89,255,.16),transparent_30%),radial-gradient(circle_at_90%_85%,rgba(92,45,210,.13),transparent_32%)]" />
-      <a href="/" className="relative mx-auto mb-7 flex w-full max-w-[1120px] items-center gap-3 text-sm font-bold text-white/55 transition hover:text-white">
+      <Link href="/" className="relative mx-auto mb-7 flex w-full max-w-[1120px] items-center gap-3 text-sm font-bold text-white/55 transition hover:text-white">
         <ArrowLeft className="size-4" /> 메인으로 돌아가기
-      </a>
+      </Link>
 
       <section className="relative mx-auto grid min-h-[720px] w-full max-w-[1120px] overflow-hidden rounded-[34px] border border-white/10 bg-[#0b0b0d] shadow-[0_35px_100px_rgba(0,0,0,.55)] lg:grid-cols-[.82fr_1.18fr]">
         <aside className="relative hidden overflow-hidden border-r border-white/10 bg-[#0c1229] p-12 lg:flex lg:flex-col lg:justify-between">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(66,112,255,.35),transparent_36%),radial-gradient(circle_at_75%_80%,rgba(114,56,224,.28),transparent_42%)]" />
           <div className="relative">
-            <a href="/" className="inline-flex items-center gap-3 text-xl font-black">
+            <Link href="/" className="inline-flex items-center gap-3 text-xl font-black">
               <span className="grid size-11 place-items-center rounded-2xl bg-[#3867ff] shadow-[0_10px_30px_rgba(56,103,255,.35)]"><Layers3 className="size-6" /></span>
               DeepUp
-            </a>
+            </Link>
             <p className="mt-16 text-xs font-black tracking-[.22em] text-[#7897ff]">AI UPSCALING SERVICE</p>
             <h1 className="mt-5 text-[42px] font-black leading-[1.15] tracking-[-.045em]">더 선명한 결과를<br />계정에 안전하게.</h1>
             <p className="mt-6 max-w-sm text-sm leading-7 text-white/52">이미지와 영상을 개선하고, 처리 이력과 결과 파일을 언제든 다시 확인하세요.</p>
           </div>
           <div className="relative space-y-4 text-sm font-bold text-white/62">
-            <p className="flex items-center gap-3"><Sparkles className="size-4 text-[#7897ff]" /> 최대 500MB 이미지·영상 처리</p>
+            <p className="flex items-center gap-3"><Sparkles className="size-4 text-[#7897ff]" /> 최대 90MB 이미지·영상 처리</p>
             <p className="flex items-center gap-3"><ShieldCheck className="size-4 text-[#7897ff]" /> 결과 저장 및 작업 이력 관리</p>
           </div>
         </aside>

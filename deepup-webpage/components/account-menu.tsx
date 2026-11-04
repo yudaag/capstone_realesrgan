@@ -9,6 +9,7 @@ type User = { username: string; role: string };
 export function AccountMenu() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [open, setOpen] = useState(false);
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     if (sessionStorage.getItem('deepup_browser_session') !== 'active') {
@@ -22,7 +23,7 @@ export function AccountMenu() {
   }, []);
 
   if (user === undefined) return <span className="h-9 w-24 animate-pulse rounded-full bg-white/10" />;
-  if (!user) return <a href="/login" className="flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-xs font-bold"><Menu className="size-4" /> 로그인</a>;
+  if (!user) return <Link href="/login" className="flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-xs font-bold"><Menu className="size-4" /> 로그인</Link>;
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
@@ -38,7 +39,8 @@ export function AccountMenu() {
     }
     event.preventDefault();
     setOpen(false);
-    window.alert('화질 개선이 진행 중입니다. 작업이 완료된 후 마이페이지로 이동해 주세요.');
+    setNotice('화질 개선이 진행 중입니다. 완료 후 마이페이지로 이동할 수 있습니다.');
+    window.setTimeout(() => setNotice(''), 3200);
   }
 
   return <div className="relative">
@@ -53,5 +55,6 @@ export function AccountMenu() {
       {user.role === 'admin' && <Link href="/admin" className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold hover:bg-white/8"><ShieldCheck className="size-4 text-[#7895ff]" />관리자 페이지</Link>}
       <button onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold text-red-300 hover:bg-white/8"><LogOut className="size-4" />로그아웃</button>
     </div>}
+    {notice && <div role="status" className="deepup-reveal fixed left-1/2 top-24 z-[120] w-[min(92vw,430px)] -translate-x-1/2 rounded-2xl border border-[#5278ff]/60 bg-[#10162b]/95 px-5 py-4 text-center text-xs font-bold text-white shadow-2xl backdrop-blur-xl">{notice}</div>}
   </div>;
 }

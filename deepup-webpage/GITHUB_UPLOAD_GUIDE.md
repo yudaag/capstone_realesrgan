@@ -4,7 +4,7 @@
 
 - 클릭 및 드래그 앤 드롭 파일 선택
 - 비로그인: 이미지 1장, 10MB, 2배 개선, 영상 차단
-- 로그인: 이미지·영상, 최대 500MB, 4배 개선
+- 로그인: 이미지·영상, 최대 90MB, 4배 개선
 - 브라우저에서 R2로 직접 업로드
 - Replicate prediction 생성 및 상태 조회
 - 완료 결과를 Replicate 임시 URL에서 R2로 복사
@@ -86,4 +86,4 @@ Deploy command: npx wrangler deploy --config dist/server/wrangler.json
 6. 삭제 후 목록과 R2 파일 제거 확인
 7. 짧은 MP4 처리 확인
 
-500MB 영상은 업로드할 수 있지만 GPU 처리 시간과 Replicate 비용이 매우 커질 수 있으므로 처음에는 10초 이내의 작은 MP4로 시험하세요.
+영상은 GPU 처리 시간과 Replicate 비용이 매우 커질 수 있으므로 처음에는 10초 이내의 작은 MP4로 시험하세요.

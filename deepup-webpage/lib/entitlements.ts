@@ -11,7 +11,8 @@ export const GUEST_POLICY = {
 export const MEMBER_POLICY = {
   allowImage: true,
   allowVideo: true,
-  maxBytes: 500 * 1024 * 1024,
+  // 업로드가 Worker를 직접 통과하므로 일반 Workers 요청 한도보다 여유 있게 제한한다.
+  maxBytes: 90 * 1024 * 1024,
   maxFiles: 1,
   saveHistory: true,
   originalDownload: true,

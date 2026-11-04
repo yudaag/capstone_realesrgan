@@ -24,11 +24,11 @@ export default function Home() {
 
       <section id="service" className="relative overflow-hidden border-b border-white/10">
         <div className="hero-glow absolute inset-0 opacity-80" />
-        <div className="relative mx-auto grid min-h-[calc(100vh-72px)] max-w-[1600px] gap-14 px-6 py-16 lg:grid-cols-[.8fr_1.2fr] lg:items-center lg:px-12 xl:gap-24">
+        <div className="relative mx-auto grid min-h-[calc(100vh-72px)] max-w-[1600px] gap-14 px-6 py-16 lg:grid-cols-[.95fr_1.05fr] lg:items-center lg:px-12 xl:grid-cols-[.8fr_1.2fr] xl:gap-24">
           <div>
             <div className="mb-8 flex items-center gap-3 text-sm font-bold text-white/80"><span className="grid size-8 place-items-center rounded-md bg-[#275cff]"><Sparkles className="size-4" /></span>AI IMAGE &amp; VIDEO ENHANCEMENT</div>
-            <h1 className="max-w-[650px] text-[clamp(48px,6vw,92px)] font-black leading-[1.02] tracking-[-.065em]">
-              깊이를 이해하는<br />
+            <h1 className="max-w-[650px] text-[clamp(48px,5.5vw,92px)] font-black leading-[1.02] tracking-[-.065em]">
+              <span className="whitespace-nowrap">깊이를 이해하는</span><br />
               <span className="text-[#6f91ff]">AI 화질 개선</span>
             </h1>
             <p className="mt-7 max-w-xl text-base leading-7 text-white/58 lg:text-lg">이미지와 영상의 깊이 정보를 분석해 중요한 영역은 더 선명하게, 배경은 더 자연스럽게 개선합니다.</p>
