@@ -8,6 +8,11 @@ const ALLOW_NAVIGATION_KEY = 'deepup_allow_navigation_once';
 
 export function SessionGuard() {
   useEffect(() => {
+    // 로그인 페이지에서는 세션 종료 감지를 실행하지 않는다. 로그인 요청과
+    // 페이지 이동 사이에 기존 인증 확인이 뒤늦게 끝나면 새 세션을 지우는
+    // 경쟁 상태가 생길 수 있기 때문이다.
+    if (window.location.pathname === '/login') return;
+
     let active = true;
 
     const markBrowserExit = () => {
