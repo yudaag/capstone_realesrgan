@@ -38,13 +38,13 @@ export default function Home() {
 
           <div className="mt-20 border-t border-white/10 pt-16 lg:mt-28 lg:pt-20">
             <div className="mb-5 flex items-end justify-between">
-              <div><p className="text-xs font-bold tracking-[.18em] text-[#6f91ff]">PROJECT VIDEO</p><h2 className="mt-2 text-2xl font-extrabold tracking-[-.03em]">캡스톤 프로젝트 발표 영상</h2></div>
-              <span className="hidden rounded-full border border-white/15 px-3 py-1.5 text-[10px] font-bold text-white/55 sm:block">CAPSTONE</span>
+              <div><p className="text-xs font-bold tracking-[.18em] text-[#6f91ff]">PROCESSING PIPELINE</p><h2 className="mt-2 text-2xl font-extrabold tracking-[-.03em]">알고리즘 적용 과정</h2></div>
+              <span className="hidden rounded-full border border-white/15 px-3 py-1.5 text-[10px] font-bold text-white/55 sm:block">DEPTH-AWARE</span>
             </div>
             <div className="relative aspect-video overflow-hidden rounded-[26px] border border-white/15 bg-[#101828] shadow-[0_30px_90px_rgba(0,0,0,.5)]">
               <ProjectVideo />
             </div>
-            <p className="mt-4 text-xs leading-5 text-white/40">깊이 정보를 활용한 선택적 화질 개선 프로젝트의 기획 배경과 구현 방향을 소개합니다.</p>
+            <p className="mt-4 text-xs leading-5 text-white/40">원본 입력부터 Real-ESRGAN 복원, 경계 분석과 Depth 추정, 영역별 가중치 적용까지 핵심 화질 개선 과정을 보여줍니다.</p>
           </div>
         </div>
       </section>
