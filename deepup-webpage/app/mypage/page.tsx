@@ -1,5 +1,4 @@
 import { Layers3 } from 'lucide-react';
-import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { currentUserFromCookie, db } from '@/lib/auth';
@@ -52,8 +51,8 @@ export default async function MyPage({ searchParams }: { searchParams: Promise<{
   return <main className="min-h-screen bg-black text-white">
     <header className="border-b border-white/10 bg-[#080808]">
       <div className="mx-auto flex h-[72px] max-w-[1600px] items-center justify-between px-6 lg:px-12">
-        <Link href="/" className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-lg bg-[#275cff]"><Layers3 className="size-5" /></span><span className="text-lg font-black">DeepUp</span></Link>
-        <nav className="flex items-center gap-2 text-xs font-bold"><Link href="/#service" className="rounded-full border border-white/15 px-5 py-2.5">화질 개선</Link><span className="rounded-full border border-[#5278ff] bg-[#12204b] px-5 py-2.5 text-[#9bb0ff]">마이페이지</span><span className="hidden rounded-full border border-white/15 px-5 py-2.5 sm:block">{user.username}</span></nav>
+        <a href="/" className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-lg bg-[#275cff]"><Layers3 className="size-5" /></span><span className="text-lg font-black">DeepUp</span></a>
+        <nav className="flex items-center gap-2 text-xs font-bold"><a href="/#service" className="rounded-full border border-white/15 px-5 py-2.5">화질 개선</a><span className="rounded-full border border-[#5278ff] bg-[#12204b] px-5 py-2.5 text-[#9bb0ff]">마이페이지</span><span className="hidden rounded-full border border-white/15 px-5 py-2.5 sm:block">{user.username}</span></nav>
       </div>
     </header>
 
