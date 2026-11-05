@@ -2,7 +2,6 @@
 
 import { Check, Pencil, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { JobActions } from '@/components/job-actions';
 
 type Job = {
@@ -125,7 +124,7 @@ export function JobHistoryList({ jobs }: { jobs: Job[] }) {
     window.location.reload();
   }
 
-  if (items.length === 0) return <div className="rounded-2xl border border-dashed border-white/15 px-6 py-20 text-center"><p className="font-bold">아직 처리 이력이 없습니다.</p><Link href="/#service" className="mt-5 inline-block rounded-full bg-[#3867ff] px-6 py-3 text-sm font-bold">첫 화질 개선 시작하기</Link></div>;
+  if (items.length === 0) return <div className="rounded-2xl border border-dashed border-white/15 px-6 py-20 text-center"><p className="font-bold">아직 처리 이력이 없습니다.</p><a href="/#service" className="mt-5 inline-block rounded-full bg-[#3867ff] px-6 py-3 text-sm font-bold">첫 화질 개선 시작하기</a></div>;
 
   return <>
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#0b0b0d] px-5 py-3.5">
