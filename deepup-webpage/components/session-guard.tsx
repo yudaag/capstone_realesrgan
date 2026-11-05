@@ -45,7 +45,9 @@ export function SessionGuard() {
 
         await fetch('/api/auth/logout', { method: 'POST' });
         localStorage.removeItem(BROWSER_EXIT_KEY);
-        if (active && window.location.pathname !== '/login') window.location.replace('/login');
+        // 종료된 브라우저 세션의 서버 쿠키만 정리한다. 공개 홈 화면에서
+        // 로그인 페이지를 잠깐 보여 주지 않고, 사용자가 원할 때 로그인한다.
+        if (active && window.location.pathname !== '/') window.location.replace('/');
       })
       .catch(() => undefined);
     return () => {
