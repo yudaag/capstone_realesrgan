@@ -117,7 +117,7 @@ export function EnhancementWorkspace() {
   const finished = job?.status === 'succeeded';
   const displayedName = file?.name || activeName;
   const displayedSize = file ? `${(file.size / 1024 / 1024).toFixed(2)}MB · ` : '';
-  return <div className="max-w-[620px]">
+  return <div className="w-full">
     <div className="mb-4 rounded-2xl border border-white/10 bg-white/[.04] p-4">
       <p className="mb-3 text-xs font-bold text-white/55">이미지 카테고리를 선택하세요</p>
       <div className="grid grid-cols-2 gap-2">
