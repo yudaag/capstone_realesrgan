@@ -16,8 +16,8 @@ export function ProjectVideo() {
   return <div className="relative h-full w-full">
     <video
       ref={videoRef}
-      aria-label="캡스톤 프로젝트 발표 영상"
-      className="h-full w-full object-contain"
+      aria-label="알고리즘 적용 과정 영상"
+      className="h-full w-full object-cover"
       autoPlay
       muted
       loop
