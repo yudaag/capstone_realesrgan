@@ -117,7 +117,7 @@ export function EnhancementWorkspace() {
   const finished = job?.status === 'succeeded';
   const displayedName = file?.name || activeName;
   const displayedSize = file ? `${(file.size / 1024 / 1024).toFixed(2)}MB · ` : '';
-  return <div className="mx-auto w-full max-w-[1120px] rounded-[30px] border border-white/10 bg-gradient-to-b from-white/[.065] to-white/[.025] p-3 shadow-[0_30px_100px_rgba(0,0,0,.36),0_0_80px_rgba(39,92,255,.08)] lg:p-4">
+  return <div className="mx-auto w-full max-w-[920px] rounded-[30px] border border-white/10 bg-gradient-to-b from-white/[.065] to-white/[.025] p-3 shadow-[0_30px_100px_rgba(0,0,0,.36),0_0_80px_rgba(39,92,255,.08)] lg:p-4">
     <div className="mb-3 rounded-[22px] border border-white/[.08] bg-black/25 p-5">
       <p className="mb-3 text-xs font-bold text-white/55">이미지 카테고리를 선택하세요</p>
       <div className="grid grid-cols-2 gap-2">
