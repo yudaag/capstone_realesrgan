@@ -24,16 +24,16 @@ export default function Home() {
 
       <section id="service" className="relative overflow-hidden border-b border-white/10">
         <div className="hero-glow absolute inset-0 opacity-80" />
-        <div className="relative mx-auto max-w-[1200px] px-6 py-16 lg:px-12 lg:py-24">
-          <div className="max-w-[820px]">
+        <div className="relative mx-auto max-w-[1600px] px-6 py-16 lg:px-12 lg:py-24">
+          <div className="w-full">
             <div className="mb-8 flex items-center gap-3 text-sm font-bold text-white/80"><span className="grid size-8 place-items-center rounded-md bg-[#275cff]"><Sparkles className="size-4" /></span>AI IMAGE &amp; VIDEO ENHANCEMENT</div>
-            <h1 className="max-w-[650px] text-[clamp(48px,5.5vw,92px)] font-black leading-[1.02] tracking-[-.065em]">
-              <span className="whitespace-nowrap">깊이를 이해하는</span><br />
+            <h1 className="whitespace-nowrap text-[clamp(40px,5.2vw,84px)] font-black leading-[1.02] tracking-[-.065em]">
+              <span>깊이를 이해하는 </span>
               <span className="text-[#6f91ff]">AI 화질 개선</span>
             </h1>
             <p className="mt-7 text-base leading-7 text-white/58 lg:whitespace-nowrap lg:text-lg">이미지와 영상의 깊이 정보를 분석해 중요한 영역은 더 선명하게, 배경은 더 자연스럽게 개선합니다.</p>
 
-            <div className="mt-10"><EnhancementWorkspace /></div>
+            <div className="mt-10 w-full"><EnhancementWorkspace /></div>
           </div>
 
           <div className="mt-20 border-t border-white/10 pt-16 lg:mt-28 lg:pt-20">
