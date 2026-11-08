@@ -27,7 +27,7 @@ export function ProjectVideo() {
       onCanPlay={() => { setError(false); void videoRef.current?.play().catch(() => undefined); }}
       onError={() => setError(true)}
     >
-      <source src="/capstone-presentation.mp4" type="video/mp4" />
+      <source src="/capstone-presentation.mov" type="video/quicktime" />
       이 브라우저에서는 영상을 재생할 수 없습니다.
     </video>
     {error && <div className="absolute inset-0 grid place-items-center bg-[#080b12] px-8 text-center text-sm font-bold text-white/60">발표 영상을 불러오지 못했습니다.<br />잠시 후 새로고침해 주세요.</div>}
