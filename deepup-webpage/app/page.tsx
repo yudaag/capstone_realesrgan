@@ -41,7 +41,7 @@ export default function Home() {
               <div><p className="text-xs font-bold tracking-[.18em] text-[#6f91ff]">PROCESSING PIPELINE</p><h2 className="mt-2 text-2xl font-extrabold tracking-[-.03em]">알고리즘 적용 과정</h2></div>
               <span className="hidden rounded-full border border-white/15 px-3 py-1.5 text-[10px] font-bold text-white/55 sm:block">DEPTH-AWARE</span>
             </div>
-            <div className="relative aspect-[1778/718] overflow-hidden border border-white/15 bg-[#101828] shadow-[0_30px_90px_rgba(0,0,0,.5)]">
+            <div className="relative aspect-[1708/696] overflow-hidden border border-white/15 bg-[#101828] shadow-[0_30px_90px_rgba(0,0,0,.5)]">
               <ProjectVideo />
             </div>
             <p className="mt-4 text-xs leading-5 text-white/40">원본 입력부터 Real-ESRGAN 복원, 경계 분석과 Depth 추정, 영역별 가중치 적용까지 핵심 화질 개선 과정을 보여줍니다.</p>
