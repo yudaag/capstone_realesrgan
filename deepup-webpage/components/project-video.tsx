@@ -17,7 +17,7 @@ export function ProjectVideo() {
     <video
       ref={videoRef}
       aria-label="알고리즘 적용 과정 영상"
-      className="h-full w-full object-cover"
+      className="h-full w-full object-contain"
       autoPlay
       muted
       loop
