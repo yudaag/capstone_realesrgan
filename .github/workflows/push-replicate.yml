@@ -21,13 +21,11 @@ jobs:
       - name: Install and login to Cog
         uses: replicate/setup-cog@v2
         with:
+          cog-version: "v0.22.0"
           token: ${{ secrets.REPLICATE_CLI_AUTH_TOKEN }}
 
       - name: Build and push model
         working-directory: deepup-model
-        # GitHub's hosted runner has no NVIDIA GPU. Recent Cog releases try to
-        # launch the GPU image while validating the schema after the build,
-        # which fails before the already-built image can be published.
-        # x-fast uses Cog's static schema and skips that local GPU validation;
-        # Replicate still runs the published model on its configured GPU.
-        run: cog push --x-fast r8.im/yudaag/realesrgan_upscaling
+        # Cog v0.22 generates the schema statically, so a hosted runner can
+        # build and publish this GPU model without launching it locally.
+        run: cog push r8.im/yudaag/realesrgan_upscaling
