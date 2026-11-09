@@ -9,6 +9,7 @@ import numpy as np
 import torch
 
 import image_pipeline as image_core
+import proposed_pipeline
 
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
@@ -22,10 +23,23 @@ SCENE_CUT_THRESHOLD = 0.30
 # already temporally blended, so disabling dense optical flow removes a large
 # per-frame CPU cost without changing the restoration model itself.
 USE_OPTICAL_FLOW = False
-VIDEO_MAX_FPS = 15.0
+# Fast verification mode: process only five representative frames per second
+# so users can confirm that the deployed model works before a quality-focused
+# production preset is selected.
+VIDEO_MAX_FPS = 5.0
 # The original Colab pipeline downsamples video frames before x4 restoration.
 # MAX_OUTPUT_SIDE remains as a safety limit when low-resolution mode is off.
-MAX_OUTPUT_SIDE = 3840
+# Direct RRDBNet forward keeps the notebook math exact but cannot use
+# RealESRGANer's tile helper.  A 480px input side produces a 1920px x4 result
+# and stays within the Replicate T4 memory budget.
+MAX_OUTPUT_SIDE = 1920
+USE_TRAINING_PROPOSED = False
+
+
+def use_training_proposed(enabled):
+    """Select the notebook's trained Proposed forward for photo/video."""
+    global USE_TRAINING_PROPOSED
+    USE_TRAINING_PROPOSED = bool(enabled)
 
 
 class TemporalState:
@@ -104,6 +118,9 @@ def normalize_depth_video(depth, state):
 
 
 def process_frame(frame, state):
+    if USE_TRAINING_PROPOSED:
+        return process_proposed_frame(frame, state)
+
     height, width = frame.shape[:2]
     out_width, out_height = width * image_core.UPSCALE, height * image_core.UPSCALE
     if detect_scene_cut(state.prev_frame, frame):
@@ -187,6 +204,48 @@ def process_frame(frame, state):
     return final
 
 
+def process_proposed_frame(frame, state):
+    """Cell 14 process_core(), using maps returned by proposed_forward()."""
+    if detect_scene_cut(state.prev_frame, frame):
+        state.reset()
+
+    lr = proposed_pipeline.bgr_to_tensor(frame)
+    final_tensor, maps = proposed_pipeline.proposed_forward(lr, return_maps=True)
+
+    depth = maps["depth"][0, 0].detach().float().cpu().numpy().astype(np.float32)
+    structure = maps["structure"][0, 0].detach().float().cpu().numpy().astype(np.float32)
+    blur = maps["blur_strength"][0, 0].detach().float().cpu().numpy().astype(np.float32)
+
+    # The notebook smooths the learned Proposed maps for video.  Still-image
+    # inference returns final_tensor directly without this temporal branch.
+    if state.prev_depth is not None and state.prev_depth.shape == depth.shape:
+        depth = VIDEO_DEPTH_ALPHA * depth + (1.0 - VIDEO_DEPTH_ALPHA) * state.prev_depth
+    if state.prev_structure is not None and state.prev_structure.shape == structure.shape:
+        structure = VIDEO_STRUCTURE_ALPHA * structure + (1.0 - VIDEO_STRUCTURE_ALPHA) * state.prev_structure
+    if state.prev_blur is not None and state.prev_blur.shape == blur.shape:
+        blur = VIDEO_BLUR_ALPHA * blur + (1.0 - VIDEO_BLUR_ALPHA) * state.prev_blur
+
+    blurred = proposed_pipeline.gaussian_blur_tensor(
+        maps["I_sr"], proposed_pipeline.BLUR_SIGMA
+    )
+    restored_rgb = maps["I_sr"][0].detach().float().permute(1, 2, 0).cpu().numpy()
+    blurred_rgb = blurred[0].detach().float().permute(1, 2, 0).cpu().numpy()
+    merged_rgb = np.clip(
+        (1.0 - blur[..., None]) * restored_rgb + blur[..., None] * blurred_rgb,
+        0.0,
+        1.0,
+    )
+    final = cv2.cvtColor(
+        (merged_rgb * 255.0).round().astype(np.uint8), cv2.COLOR_RGB2BGR
+    )
+
+    state.prev_frame = frame.copy()
+    state.prev_depth = depth.copy()
+    state.prev_structure = structure.copy()
+    state.prev_blur = blur.copy()
+    return final
+
+
 def _mux_original_audio(original_path, silent_path, output_path):
     if shutil.which("ffmpeg") is None:
         shutil.move(silent_path, output_path)
@@ -197,7 +256,7 @@ def _mux_original_audio(original_path, silent_path, output_path):
         # OpenCV's mp4v output is not reliably playable in Chrome/Safari.
         # Re-encode to browser-compatible H.264 and move the MP4 index to the
         # beginning so playback can start while the file is streaming.
-        "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
         "-pix_fmt", "yuv420p", "-movflags", "+faststart",
         "-c:a", "aac", "-b:a", "192k", "-shortest", output_path,
     ]
@@ -209,7 +268,14 @@ def _mux_original_audio(original_path, silent_path, output_path):
 def _processing_size(width, height):
     if width <= 0 or height <= 0:
         raise ValueError("동영상 해상도를 확인할 수 없습니다.")
-    if image_core.MAKE_LOW_RESOLUTION:
+    if USE_TRAINING_PROPOSED:
+        # The notebook feeds each video frame directly to the x4 RRDBNet.
+        # Limit only oversized inputs to prevent a T4 out-of-memory error.
+        max_input_side = max(2, MAX_OUTPUT_SIDE // proposed_pipeline.SCALE)
+        ratio = min(1.0, max_input_side / max(width, height))
+        process_width = max(2, int(round(width * ratio)))
+        process_height = max(2, int(round(height * ratio)))
+    elif image_core.MAKE_LOW_RESOLUTION:
         process_width = max(2, width // image_core.DOWNSCALE)
         process_height = max(2, height // image_core.DOWNSCALE)
     elif image_core.UPSCALE > 1:
@@ -237,17 +303,15 @@ def process_video(video_path, save_path):
     if not np.isfinite(source_fps) or source_fps <= 0:
         source_fps = 30.0
     # Processing every source frame is prohibitively expensive because each
-    # frame runs both Real-ESRGAN and the depth model.  Sampling uniformly at
-    # at most 15 fps preserves the original duration while roughly halving the
-    # work for common 30 fps uploads.
+    # frame runs both Real-ESRGAN and the depth model.  The temporary 5 fps
+    # verification preset preserves the duration while making it quick to
+    # confirm that the complete enhancement pipeline works end-to-end.
     output_fps = min(float(source_fps), VIDEO_MAX_FPS)
     input_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     input_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     process_width, process_height = _processing_size(input_width, input_height)
-    output_size = (
-        process_width * image_core.UPSCALE,
-        process_height * image_core.UPSCALE,
-    )
+    output_scale = proposed_pipeline.SCALE if USE_TRAINING_PROPOSED else image_core.UPSCALE
+    output_size = (process_width * output_scale, process_height * output_scale)
     os.makedirs(save_path, exist_ok=True)
     silent_path = os.path.join(save_path, "deepup_video_silent.mp4")
     output_path = os.path.join(save_path, "deepup_result.mp4")
