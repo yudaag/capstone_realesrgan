@@ -121,10 +121,10 @@ export function EnhancementWorkspace() {
     <div className="mb-3 rounded-[22px] border border-white/[.08] bg-black/25 p-5">
       <p className="mb-3 text-xs font-bold text-white/55">이미지 카테고리를 선택하세요</p>
       <div className="grid grid-cols-2 gap-2">
-        <button type="button" disabled={busy} onClick={() => setCategory('photo')} className={`rounded-xl border px-4 py-3.5 text-sm font-black transition ${category === 'photo' ? 'border-[#6f8fff] bg-gradient-to-r from-[#20377d] to-[#182b67] text-white shadow-[0_8px_26px_rgba(39,92,255,.18)]' : 'border-white/10 bg-black/20 text-white/45 hover:border-white/20 hover:text-white'}`}>풍경 · 실사</button>
+        <button type="button" disabled={busy} onClick={() => setCategory('photo')} className={`rounded-xl border px-4 py-3.5 text-sm font-black transition ${category === 'photo' ? 'border-[#6f8fff] bg-gradient-to-r from-[#20377d] to-[#182b67] text-white shadow-[0_8px_26px_rgba(39,92,255,.18)]' : 'border-white/10 bg-black/20 text-white/45 hover:border-white/20 hover:text-white'}`}>풍경 · 동물</button>
         <button type="button" disabled={busy} onClick={() => setCategory('anime')} className={`rounded-xl border px-4 py-3.5 text-sm font-black transition ${category === 'anime' ? 'border-[#6f8fff] bg-gradient-to-r from-[#20377d] to-[#182b67] text-white shadow-[0_8px_26px_rgba(39,92,255,.18)]' : 'border-white/10 bg-black/20 text-white/45 hover:border-white/20 hover:text-white'}`}>애니 · 일러스트</button>
       </div>
-      <p className="mt-3 text-[11px] text-white/35">풍경·실사: 파인튜닝 모델 · 애니·일러스트: 애니 전용 모델</p>
+      <p className="mt-3 text-[11px] text-white/35">풍경·동물: 제안 모델(파인튜닝 + Depth/Structure) · 애니·일러스트: 애니 전용 모델</p>
     </div>
     <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); void choose(event.dataTransfer.files[0]); }} onClick={() => inputRef.current?.click()} className="group cursor-pointer rounded-[24px] border border-[#5477ff]/80 bg-[radial-gradient(circle_at_50%_15%,rgba(73,112,255,.22),transparent_42%),linear-gradient(135deg,rgba(20,37,93,.94),rgba(11,20,50,.94))] p-8 shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_18px_55px_rgba(20,45,120,.2)] transition hover:border-[#7997ff] hover:shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_24px_70px_rgba(39,92,255,.25)] lg:min-h-[290px] lg:p-10">
       <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" className="hidden" onChange={(event) => void choose(event.target.files?.[0])} />
