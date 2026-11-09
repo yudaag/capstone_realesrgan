@@ -18,19 +18,13 @@ VIDEO_DEPTH_RANGE_ALPHA = 0.95
 VIDEO_DEPTH_ALPHA = 0.80
 VIDEO_STRUCTURE_ALPHA = 0.70
 VIDEO_BLUR_ALPHA = 0.80
-# The training-time blur was designed to make distant backgrounds natural,
-# but on compressed animal footage it can classify the subject as distant and
-# hide the RRDBNet restoration.  Keep the depth-aware effect subtle for video.
-VIDEO_BLUR_SCALE = 0.25
-VIDEO_BLUR_MAX = 0.18
 SCENE_CUT_THRESHOLD = 0.30
 # Web inference prioritizes turnaround time.  The depth/structure maps are
 # already temporally blended, so disabling dense optical flow removes a large
 # per-frame CPU cost without changing the restoration model itself.
 USE_OPTICAL_FLOW = False
-# Fast verification mode: process only five representative frames per second
-# so users can confirm that the deployed model works before a quality-focused
-# production preset is selected.
+# Only retained for the non-Proposed/anime compatibility path. The notebook
+# Proposed path processes every source frame at the original FPS.
 VIDEO_MAX_FPS = 5.0
 # The original Colab pipeline downsamples video frames before x4 restoration.
 # MAX_OUTPUT_SIDE remains as a safety limit when low-resolution mode is off.
@@ -230,12 +224,6 @@ def process_proposed_frame(frame, state):
     if state.prev_blur is not None and state.prev_blur.shape == blur.shape:
         blur = VIDEO_BLUR_ALPHA * blur + (1.0 - VIDEO_BLUR_ALPHA) * state.prev_blur
 
-    # Save the unscaled temporal map, then apply a conservative display-time
-    # strength. This preserves temporal stability without repeatedly shrinking
-    # the map on every frame.
-    temporal_blur = blur.copy()
-    blur = np.minimum(blur * VIDEO_BLUR_SCALE, VIDEO_BLUR_MAX)
-
     blurred = proposed_pipeline.gaussian_blur_tensor(
         maps["I_sr"], proposed_pipeline.BLUR_SIGMA
     )
@@ -253,7 +241,7 @@ def process_proposed_frame(frame, state):
     state.prev_frame = frame.copy()
     state.prev_depth = depth.copy()
     state.prev_structure = structure.copy()
-    state.prev_blur = temporal_blur
+    state.prev_blur = blur.copy()
     return final
 
 
@@ -280,12 +268,10 @@ def _processing_size(width, height):
     if width <= 0 or height <= 0:
         raise ValueError("동영상 해상도를 확인할 수 없습니다.")
     if USE_TRAINING_PROPOSED:
-        # The notebook feeds each video frame directly to the x4 RRDBNet.
-        # Limit only oversized inputs to prevent a T4 out-of-memory error.
-        max_input_side = max(2, MAX_OUTPUT_SIDE // proposed_pipeline.SCALE)
-        ratio = min(1.0, max_input_side / max(width, height))
-        process_width = max(2, int(round(width * ratio)))
-        process_height = max(2, int(round(height * ratio)))
+        # Cell 14 uses MAKE_LOW_RESOLUTION=True for video as well:
+        # source -> 1/4 LR -> fine-tuned RRDBNet x4 -> source-size result.
+        process_width = max(1, width // image_core.DOWNSCALE)
+        process_height = max(1, height // image_core.DOWNSCALE)
     elif image_core.MAKE_LOW_RESOLUTION:
         process_width = max(2, width // image_core.DOWNSCALE)
         process_height = max(2, height // image_core.DOWNSCALE)
@@ -299,9 +285,11 @@ def _processing_size(width, height):
         # before the proposed model sees it.
         process_width = width
         process_height = height
-    # yuv420/mp4 encoders require even dimensions.
-    process_width -= process_width % 2
-    process_height -= process_height % 2
+    # The x4 Proposed output is always even. The compatibility path still
+    # needs an even input for its direct writer size.
+    if not USE_TRAINING_PROPOSED:
+        process_width -= process_width % 2
+        process_height -= process_height % 2
     return process_width, process_height
 
 
@@ -317,7 +305,11 @@ def process_video(video_path, save_path):
     # frame runs both Real-ESRGAN and the depth model.  The temporary 5 fps
     # verification preset preserves the duration while making it quick to
     # confirm that the complete enhancement pipeline works end-to-end.
-    output_fps = min(float(source_fps), VIDEO_MAX_FPS)
+    output_fps = (
+        float(source_fps)
+        if USE_TRAINING_PROPOSED
+        else min(float(source_fps), VIDEO_MAX_FPS)
+    )
     input_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     input_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     process_width, process_height = _processing_size(input_width, input_height)
@@ -343,11 +335,12 @@ def process_video(video_path, save_path):
                 break
             frame_time = source_frame_index / source_fps
             source_frame_index += 1
-            # Keep frames on a time grid instead of using an integer step so
-            # 24/25/29.97 fps inputs retain the correct playback duration.
-            if frame_time + (0.5 / source_fps) < next_output_time:
-                continue
-            next_output_time += 1.0 / output_fps
+            if not USE_TRAINING_PROPOSED:
+                # Compatibility path keeps representative frames on a time
+                # grid. Proposed follows the notebook and processes all frames.
+                if frame_time + (0.5 / source_fps) < next_output_time:
+                    continue
+                next_output_time += 1.0 / output_fps
             if frame.shape[1] != process_width or frame.shape[0] != process_height:
                 frame = cv2.resize(
                     frame,
