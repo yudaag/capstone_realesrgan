@@ -25,4 +25,9 @@ jobs:
 
       - name: Build and push model
         working-directory: deepup-model
-        run: cog push r8.im/yudaag/realesrgan_upscaling
+        # GitHub's hosted runner has no NVIDIA GPU. Recent Cog releases try to
+        # launch the GPU image while validating the schema after the build,
+        # which fails before the already-built image can be published.
+        # x-fast uses Cog's static schema and skips that local GPU validation;
+        # Replicate still runs the published model on its configured GPU.
+        run: cog push --x-fast r8.im/yudaag/realesrgan_upscaling
