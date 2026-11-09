@@ -18,6 +18,11 @@ VIDEO_DEPTH_RANGE_ALPHA = 0.95
 VIDEO_DEPTH_ALPHA = 0.80
 VIDEO_STRUCTURE_ALPHA = 0.70
 VIDEO_BLUR_ALPHA = 0.80
+# The training-time blur was designed to make distant backgrounds natural,
+# but on compressed animal footage it can classify the subject as distant and
+# hide the RRDBNet restoration.  Keep the depth-aware effect subtle for video.
+VIDEO_BLUR_SCALE = 0.25
+VIDEO_BLUR_MAX = 0.18
 SCENE_CUT_THRESHOLD = 0.30
 # Web inference prioritizes turnaround time.  The depth/structure maps are
 # already temporally blended, so disabling dense optical flow removes a large
@@ -225,6 +230,12 @@ def process_proposed_frame(frame, state):
     if state.prev_blur is not None and state.prev_blur.shape == blur.shape:
         blur = VIDEO_BLUR_ALPHA * blur + (1.0 - VIDEO_BLUR_ALPHA) * state.prev_blur
 
+    # Save the unscaled temporal map, then apply a conservative display-time
+    # strength. This preserves temporal stability without repeatedly shrinking
+    # the map on every frame.
+    temporal_blur = blur.copy()
+    blur = np.minimum(blur * VIDEO_BLUR_SCALE, VIDEO_BLUR_MAX)
+
     blurred = proposed_pipeline.gaussian_blur_tensor(
         maps["I_sr"], proposed_pipeline.BLUR_SIGMA
     )
@@ -242,7 +253,7 @@ def process_proposed_frame(frame, state):
     state.prev_frame = frame.copy()
     state.prev_depth = depth.copy()
     state.prev_structure = structure.copy()
-    state.prev_blur = blur.copy()
+    state.prev_blur = temporal_blur
     return final
 
 
