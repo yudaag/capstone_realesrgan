@@ -145,12 +145,22 @@ def process_frame(frame, state):
         1.0,
     )
     far_strength = far_strength**2 * (3.0 - 2.0 * far_strength)
-    structure_protection = np.clip(
+    structure_raw = np.clip(
         (structure - image_core.STRUCTURE_START)
         / (1.0 - image_core.STRUCTURE_START + 1e-8),
         0.0,
         1.0,
-    ) ** image_core.STRUCTURE_PROTECT_POWER
+    )
+    power_eps = 1e-4
+    eps_power = power_eps ** image_core.STRUCTURE_PROTECT_POWER
+    structure_protection = (
+        (structure_raw + power_eps) ** image_core.STRUCTURE_PROTECT_POWER
+        - eps_power
+    ) / (
+        (1.0 + power_eps) ** image_core.STRUCTURE_PROTECT_POWER
+        - eps_power
+    )
+    structure_protection = np.clip(structure_protection, 0.0, 1.0)
     blur = far_strength * (
         1.0 - (1.0 - image_core.MIN_STRUCTURE_BLUR) * structure_protection
     )
@@ -179,8 +189,13 @@ def _mux_original_audio(original_path, silent_path, output_path):
         return
     command = [
         "ffmpeg", "-y", "-i", silent_path, "-i", original_path,
-        "-map", "0:v:0", "-map", "1:a?", "-c:v", "copy", "-c:a", "aac",
-        "-shortest", output_path,
+        "-map", "0:v:0", "-map", "1:a?",
+        # OpenCV's mp4v output is not reliably playable in Chrome/Safari.
+        # Re-encode to browser-compatible H.264 and move the MP4 index to the
+        # beginning so playback can start while the file is streaming.
+        "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+        "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+        "-c:a", "aac", "-b:a", "192k", "-shortest", output_path,
     ]
     completed = subprocess.run(command, capture_output=True, text=True)
     if completed.returncode != 0:
@@ -193,11 +208,16 @@ def _processing_size(width, height):
     if image_core.MAKE_LOW_RESOLUTION:
         process_width = max(2, width // image_core.DOWNSCALE)
         process_height = max(2, height // image_core.DOWNSCALE)
-    else:
+    elif image_core.UPSCALE > 1:
         max_input_side = max(2, MAX_OUTPUT_SIDE // image_core.UPSCALE)
         ratio = min(1.0, max_input_side / max(width, height))
         process_width = max(2, int(round(width * ratio)))
         process_height = max(2, int(round(height * ratio)))
+    else:
+        # Video restoration uses outscale=1: do not downsample the source
+        # before the proposed model sees it.
+        process_width = width
+        process_height = height
     # yuv420/mp4 encoders require even dimensions.
     process_width -= process_width % 2
     process_height -= process_height % 2

@@ -145,13 +145,15 @@ class Predictor(BasePredictor):
             selected_upsampler,
         )
 
-        image_pipeline.DOWNSCALE = 8
-
         if extension in video_pipeline.VIDEO_EXTENSIONS:
-            # Match the original Colab notebook: reduce each frame to 1/8,
-            # then run Real-ESRGAN x4. This keeps video inference practical.
-            image_pipeline.UPSCALE = 4
-            image_pipeline.MAKE_LOW_RESOLUTION = True
+            # Preserve the uploaded frame resolution.  The previous web build
+            # reduced every frame to 1/8 before inference, so the proposed
+            # landscape/animal model received an already destroyed image and
+            # the x4 result was still smaller than the original.  RealESRGANer
+            # still runs its trained x4 network internally; outscale=1 keeps
+            # the final video at the source resolution after restoration.
+            image_pipeline.UPSCALE = 1
+            image_pipeline.MAKE_LOW_RESOLUTION = False
             result_path = video_pipeline.process_video(str(input_path), str(work_dir))
         else:
             image_pipeline.UPSCALE = scale

@@ -27,7 +27,7 @@ STRUCTURE_START = 0.15
 STRUCTURE_PROTECT_POWER = 0.4
 MIN_STRUCTURE_BLUR = 0.03
 BLUR_SIGMA = 2.5
-MASK_SIGMA = 0.5
+MASK_SIGMA = 1.0
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 
@@ -126,9 +126,15 @@ def process_core(image_bgr):
         (depth - DEPTH_FAR) / (DEPTH_NEAR - DEPTH_FAR + 1e-8), 0.0, 1.0
     )
     far_strength = far_strength**2 * (3.0 - 2.0 * far_strength)
-    structure_protection = np.clip(
+    structure_raw = np.clip(
         (structure - STRUCTURE_START) / (1.0 - STRUCTURE_START + 1e-8), 0.0, 1.0
-    ) ** STRUCTURE_PROTECT_POWER
+    )
+    power_eps = 1e-4
+    eps_power = power_eps ** STRUCTURE_PROTECT_POWER
+    structure_protection = (
+        (structure_raw + power_eps) ** STRUCTURE_PROTECT_POWER - eps_power
+    ) / ((1.0 + power_eps) ** STRUCTURE_PROTECT_POWER - eps_power)
+    structure_protection = np.clip(structure_protection, 0.0, 1.0)
     blur_weight = far_strength * (
         1.0 - (1.0 - MIN_STRUCTURE_BLUR) * structure_protection
     )
