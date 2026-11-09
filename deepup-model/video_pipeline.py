@@ -18,7 +18,11 @@ VIDEO_DEPTH_ALPHA = 0.80
 VIDEO_STRUCTURE_ALPHA = 0.70
 VIDEO_BLUR_ALPHA = 0.80
 SCENE_CUT_THRESHOLD = 0.30
-USE_OPTICAL_FLOW = True
+# Web inference prioritizes turnaround time.  The depth/structure maps are
+# already temporally blended, so disabling dense optical flow removes a large
+# per-frame CPU cost without changing the restoration model itself.
+USE_OPTICAL_FLOW = False
+VIDEO_MAX_FPS = 15.0
 # The original Colab pipeline downsamples video frames before x4 restoration.
 # MAX_OUTPUT_SIDE remains as a safety limit when low-resolution mode is off.
 MAX_OUTPUT_SIDE = 3840
@@ -193,7 +197,7 @@ def _mux_original_audio(original_path, silent_path, output_path):
         # OpenCV's mp4v output is not reliably playable in Chrome/Safari.
         # Re-encode to browser-compatible H.264 and move the MP4 index to the
         # beginning so playback can start while the file is streaming.
-        "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "18",
         "-pix_fmt", "yuv420p", "-movflags", "+faststart",
         "-c:a", "aac", "-b:a", "192k", "-shortest", output_path,
     ]
@@ -229,9 +233,14 @@ def process_video(video_path, save_path):
     if not capture.isOpened():
         raise ValueError("지원하지 않거나 손상된 동영상 파일입니다.")
 
-    fps = capture.get(cv2.CAP_PROP_FPS)
-    if not np.isfinite(fps) or fps <= 0:
-        fps = 30.0
+    source_fps = capture.get(cv2.CAP_PROP_FPS)
+    if not np.isfinite(source_fps) or source_fps <= 0:
+        source_fps = 30.0
+    # Processing every source frame is prohibitively expensive because each
+    # frame runs both Real-ESRGAN and the depth model.  Sampling uniformly at
+    # at most 15 fps preserves the original duration while roughly halving the
+    # work for common 30 fps uploads.
+    output_fps = min(float(source_fps), VIDEO_MAX_FPS)
     input_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     input_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     process_width, process_height = _processing_size(input_width, input_height)
@@ -243,18 +252,27 @@ def process_video(video_path, save_path):
     silent_path = os.path.join(save_path, "deepup_video_silent.mp4")
     output_path = os.path.join(save_path, "deepup_result.mp4")
     writer = cv2.VideoWriter(
-        silent_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, output_size
+        silent_path, cv2.VideoWriter_fourcc(*"mp4v"), output_fps, output_size
     )
     if not writer.isOpened():
         capture.release()
         raise RuntimeError("결과 동영상 파일을 만들지 못했습니다.")
 
     state = TemporalState()
+    source_frame_index = 0
+    next_output_time = 0.0
     try:
         while True:
             ok, frame = capture.read()
             if not ok:
                 break
+            frame_time = source_frame_index / source_fps
+            source_frame_index += 1
+            # Keep frames on a time grid instead of using an integer step so
+            # 24/25/29.97 fps inputs retain the correct playback duration.
+            if frame_time + (0.5 / source_fps) < next_output_time:
+                continue
+            next_output_time += 1.0 / output_fps
             if frame.shape[1] != process_width or frame.shape[0] != process_height:
                 frame = cv2.resize(
                     frame,
