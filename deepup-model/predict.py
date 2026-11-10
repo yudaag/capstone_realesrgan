@@ -204,13 +204,5 @@ class Predictor(BasePredictor):
             else:
                 image_pipeline.UPSCALE = scale
                 image_pipeline.MAKE_LOW_RESOLUTION = True
-                # depth_애니_파이프라인.ipynb uses tile=0. The 1/8 LR input is
-                # small, so disable tiling for still images only; anime video
-                # keeps tile=256.
-                previous_tile = self.base_upsampler.tile_size
-                self.base_upsampler.tile_size = 0
-                try:
-                    result_path = image_pipeline.process_image(str(input_path), str(work_dir))
-                finally:
-                    self.base_upsampler.tile_size = previous_tile
+                result_path = image_pipeline.process_image(str(input_path), str(work_dir))
         return Path(str(result_path))
