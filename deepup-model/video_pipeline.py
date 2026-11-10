@@ -18,10 +18,10 @@ VIDEO_DEPTH_RANGE_ALPHA = 0.95
 VIDEO_DEPTH_ALPHA = 0.80
 VIDEO_STRUCTURE_ALPHA = 0.70
 VIDEO_BLUR_ALPHA = 0.80
-# Real uploads already contain compression blur. Keep the notebook's
-# depth-aware fusion, but prevent it from erasing restored subject detail.
-VIDEO_BLUR_SCALE = 0.25
-VIDEO_BLUR_MAX = 0.18
+# Anime video path (works well in production): keep its previous mask sigma
+# independent of image_pipeline.MASK_SIGMA, which now follows the anime
+# notebook for still images.
+VIDEO_MASK_SIGMA = 1.0
 SCENE_CUT_THRESHOLD = 0.30
 # Web inference prioritizes turnaround time.  The depth/structure maps are
 # already temporally blended, so disabling dense optical flow removes a large
@@ -191,8 +191,8 @@ def process_frame(frame, state):
     blur = far_strength * (
         1.0 - (1.0 - image_core.MIN_STRUCTURE_BLUR) * structure_protection
     )
-    if image_core.MASK_SIGMA > 0:
-        blur = cv2.GaussianBlur(blur, (0, 0), image_core.MASK_SIGMA)
+    if VIDEO_MASK_SIGMA > 0:
+        blur = cv2.GaussianBlur(blur, (0, 0), VIDEO_MASK_SIGMA)
     blur = np.clip(temporal_blend(blur, warped_blur, VIDEO_BLUR_ALPHA), 0.0, 1.0)
 
     sr_float = sr_image.astype(np.float32)
@@ -231,8 +231,9 @@ def process_proposed_frame(frame, state):
     if state.prev_blur is not None and state.prev_blur.shape == blur.shape:
         blur = VIDEO_BLUR_ALPHA * blur + (1.0 - VIDEO_BLUR_ALPHA) * state.prev_blur
 
+    # Same as depth_풍경_동물_파이프라인.ipynb: use the temporally smoothed
+    # mask directly (no extra blur scaling/clamping).
     temporal_blur = blur.copy()
-    blur = np.minimum(blur * VIDEO_BLUR_SCALE, VIDEO_BLUR_MAX)
 
     blurred = proposed_pipeline.gaussian_blur_tensor(
         maps["I_sr"], proposed_pipeline.BLUR_SIGMA
