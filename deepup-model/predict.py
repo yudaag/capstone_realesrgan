@@ -188,13 +188,14 @@ class Predictor(BasePredictor):
                 frame = cv2.imread(str(input_path), cv2.IMREAD_COLOR)
                 if frame is None:
                     raise ValueError("이미지 파일을 읽을 수 없습니다.")
-                tensor = proposed_pipeline.bgr_to_tensor(frame)
-                result = proposed_pipeline.proposed_forward(tensor)
-                output = proposed_pipeline.tensor_to_bgr(result)
+                # Feed the upload as-is (no synthetic x4 degradation).  Only
+                # oversized images are reduced so the x4 output stays within
+                # torch.quantile's 2^24-element limit and T4 memory.
+                output, lr = proposed_pipeline.enhance_image(frame)
                 if scale != proposed_pipeline.SCALE:
                     output = cv2.resize(
                         output,
-                        (frame.shape[1] * scale, frame.shape[0] * scale),
+                        (lr.shape[1] * scale, lr.shape[0] * scale),
                         interpolation=cv2.INTER_AREA,
                     )
                 result_path = work_dir / "deepup_result.png"
@@ -203,5 +204,13 @@ class Predictor(BasePredictor):
             else:
                 image_pipeline.UPSCALE = scale
                 image_pipeline.MAKE_LOW_RESOLUTION = True
-                result_path = image_pipeline.process_image(str(input_path), str(work_dir))
+                # depth_애니_파이프라인.ipynb uses tile=0. The 1/8 LR input is
+                # small, so disable tiling for still images only; anime video
+                # keeps tile=256.
+                previous_tile = self.base_upsampler.tile_size
+                self.base_upsampler.tile_size = 0
+                try:
+                    result_path = image_pipeline.process_image(str(input_path), str(work_dir))
+                finally:
+                    self.base_upsampler.tile_size = previous_tile
         return Path(str(result_path))
