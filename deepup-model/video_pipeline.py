@@ -18,6 +18,10 @@ VIDEO_DEPTH_RANGE_ALPHA = 0.95
 VIDEO_DEPTH_ALPHA = 0.80
 VIDEO_STRUCTURE_ALPHA = 0.70
 VIDEO_BLUR_ALPHA = 0.80
+# Real uploads already contain compression blur. Keep the notebook's
+# depth-aware fusion, but prevent it from erasing restored subject detail.
+VIDEO_BLUR_SCALE = 0.25
+VIDEO_BLUR_MAX = 0.18
 SCENE_CUT_THRESHOLD = 0.30
 # Web inference prioritizes turnaround time.  The depth/structure maps are
 # already temporally blended, so disabling dense optical flow removes a large
@@ -32,6 +36,9 @@ VIDEO_MAX_FPS = 5.0
 # RealESRGANer's tile helper.  A 480px input side produces a 1920px x4 result
 # and stays within the Replicate T4 memory budget.
 MAX_OUTPUT_SIDE = 1920
+# Preserve genuinely low-resolution uploads. Only oversized inputs are reduced
+# as an OOM safety fallback because direct RRDBNet forward cannot be tiled.
+MAX_PROPOSED_INPUT_SIDE = 640
 USE_TRAINING_PROPOSED = False
 
 
@@ -224,6 +231,9 @@ def process_proposed_frame(frame, state):
     if state.prev_blur is not None and state.prev_blur.shape == blur.shape:
         blur = VIDEO_BLUR_ALPHA * blur + (1.0 - VIDEO_BLUR_ALPHA) * state.prev_blur
 
+    temporal_blur = blur.copy()
+    blur = np.minimum(blur * VIDEO_BLUR_SCALE, VIDEO_BLUR_MAX)
+
     blurred = proposed_pipeline.gaussian_blur_tensor(
         maps["I_sr"], proposed_pipeline.BLUR_SIGMA
     )
@@ -241,7 +251,7 @@ def process_proposed_frame(frame, state):
     state.prev_frame = frame.copy()
     state.prev_depth = depth.copy()
     state.prev_structure = structure.copy()
-    state.prev_blur = blur.copy()
+    state.prev_blur = temporal_blur
     return final
 
 
@@ -268,10 +278,11 @@ def _processing_size(width, height):
     if width <= 0 or height <= 0:
         raise ValueError("동영상 해상도를 확인할 수 없습니다.")
     if USE_TRAINING_PROPOSED:
-        # Cell 14 uses MAKE_LOW_RESOLUTION=True for video as well:
-        # source -> 1/4 LR -> fine-tuned RRDBNet x4 -> source-size result.
-        process_width = max(1, width // image_core.DOWNSCALE)
-        process_height = max(1, height // image_core.DOWNSCALE)
+        # Service inference receives a real LR frame, not an HR benchmark
+        # target. Do not apply the notebook's synthetic x4 degradation again.
+        ratio = min(1.0, MAX_PROPOSED_INPUT_SIDE / max(width, height))
+        process_width = max(1, int(round(width * ratio)))
+        process_height = max(1, int(round(height * ratio)))
     elif image_core.MAKE_LOW_RESOLUTION:
         process_width = max(2, width // image_core.DOWNSCALE)
         process_height = max(2, height // image_core.DOWNSCALE)
