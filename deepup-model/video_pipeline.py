@@ -18,17 +18,13 @@ VIDEO_DEPTH_RANGE_ALPHA = 0.95
 VIDEO_DEPTH_ALPHA = 0.80
 VIDEO_STRUCTURE_ALPHA = 0.70
 VIDEO_BLUR_ALPHA = 0.80
-# Anime video path (works well in production): keep its previous mask sigma
-# independent of image_pipeline.MASK_SIGMA, which now follows the anime
-# notebook for still images.
-VIDEO_MASK_SIGMA = 1.0
 SCENE_CUT_THRESHOLD = 0.30
 # Web inference prioritizes turnaround time.  The depth/structure maps are
 # already temporally blended, so disabling dense optical flow removes a large
 # per-frame CPU cost without changing the restoration model itself.
 USE_OPTICAL_FLOW = False
-# Only retained for the non-Proposed/anime compatibility path. The notebook
-# Proposed path processes every source frame at the original FPS.
+# Both photo (Proposed) and anime videos are sampled at up to 5 fps so web
+# turnaround stays short. Duration is preserved; motion is less smooth.
 VIDEO_MAX_FPS = 5.0
 # The original Colab pipeline downsamples video frames before x4 restoration.
 # MAX_OUTPUT_SIDE remains as a safety limit when low-resolution mode is off.
@@ -191,8 +187,8 @@ def process_frame(frame, state):
     blur = far_strength * (
         1.0 - (1.0 - image_core.MIN_STRUCTURE_BLUR) * structure_protection
     )
-    if VIDEO_MASK_SIGMA > 0:
-        blur = cv2.GaussianBlur(blur, (0, 0), VIDEO_MASK_SIGMA)
+    if image_core.MASK_SIGMA > 0:
+        blur = cv2.GaussianBlur(blur, (0, 0), image_core.MASK_SIGMA)
     blur = np.clip(temporal_blend(blur, warped_blur, VIDEO_BLUR_ALPHA), 0.0, 1.0)
 
     sr_float = sr_image.astype(np.float32)
@@ -317,11 +313,7 @@ def process_video(video_path, save_path):
     # frame runs both Real-ESRGAN and the depth model.  The temporary 5 fps
     # verification preset preserves the duration while making it quick to
     # confirm that the complete enhancement pipeline works end-to-end.
-    output_fps = (
-        float(source_fps)
-        if USE_TRAINING_PROPOSED
-        else min(float(source_fps), VIDEO_MAX_FPS)
-    )
+    output_fps = min(float(source_fps), VIDEO_MAX_FPS)
     input_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     input_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     process_width, process_height = _processing_size(input_width, input_height)
@@ -347,12 +339,10 @@ def process_video(video_path, save_path):
                 break
             frame_time = source_frame_index / source_fps
             source_frame_index += 1
-            if not USE_TRAINING_PROPOSED:
-                # Compatibility path keeps representative frames on a time
-                # grid. Proposed follows the notebook and processes all frames.
-                if frame_time + (0.5 / source_fps) < next_output_time:
-                    continue
-                next_output_time += 1.0 / output_fps
+            # Keep representative frames on a VIDEO_MAX_FPS time grid.
+            if frame_time + (0.5 / source_fps) < next_output_time:
+                continue
+            next_output_time += 1.0 / output_fps
             if frame.shape[1] != process_width or frame.shape[0] != process_height:
                 frame = cv2.resize(
                     frame,
