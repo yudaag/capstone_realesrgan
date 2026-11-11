@@ -18,26 +18,28 @@ VIDEO_DEPTH_RANGE_ALPHA = 0.95
 VIDEO_DEPTH_ALPHA = 0.80
 VIDEO_STRUCTURE_ALPHA = 0.70
 VIDEO_BLUR_ALPHA = 0.80
-# Real uploads already contain compression blur. Keep the notebook's
-# depth-aware fusion, but prevent it from erasing restored subject detail.
-VIDEO_BLUR_SCALE = 0.25
-VIDEO_BLUR_MAX = 0.18
 SCENE_CUT_THRESHOLD = 0.30
 # Web inference prioritizes turnaround time.  The depth/structure maps are
 # already temporally blended, so disabling dense optical flow removes a large
 # per-frame CPU cost without changing the restoration model itself.
 USE_OPTICAL_FLOW = False
-# Only retained for the non-Proposed/anime compatibility path. The notebook
-# Proposed path processes every source frame at the original FPS.
+# Anime video is sampled at up to 5 fps so web turnaround stays short.
 VIDEO_MAX_FPS = 5.0
+# Photo (landscape/animal) video. None = every frame, exactly like
+# depth_풍경_동물_파이프라인.ipynb. Set e.g. 5.0 for faster turnaround.
+PHOTO_VIDEO_MAX_FPS = 5.0
+# 1 = feed uploaded frames as-is and output x4 (real upscaling).
+# 4 = notebook benchmark mode: reduce to 1/4 first, output = original size
+#     (no visible improvement on an already low-resolution upload).
+PHOTO_VIDEO_DOWNSCALE = 1
 # The original Colab pipeline downsamples video frames before x4 restoration.
 # MAX_OUTPUT_SIDE remains as a safety limit when low-resolution mode is off.
 # Direct RRDBNet forward keeps the notebook math exact but cannot use
 # RealESRGANer's tile helper.  A 480px input side produces a 1920px x4 result
 # and stays within the Replicate T4 memory budget.
 MAX_OUTPUT_SIDE = 1920
-# Preserve genuinely low-resolution uploads. Only oversized inputs are reduced
-# as an OOM safety fallback because direct RRDBNet forward cannot be tiled.
+# Speed/OOM safety: larger frames are reduced so the longer side is 640px
+# (x4 output up to 2560px).
 MAX_PROPOSED_INPUT_SIDE = 640
 USE_TRAINING_PROPOSED = False
 
@@ -231,8 +233,9 @@ def process_proposed_frame(frame, state):
     if state.prev_blur is not None and state.prev_blur.shape == blur.shape:
         blur = VIDEO_BLUR_ALPHA * blur + (1.0 - VIDEO_BLUR_ALPHA) * state.prev_blur
 
+    # Same as depth_풍경_동물_파이프라인.ipynb: use the temporally smoothed
+    # mask directly (no extra blur scaling/clamping).
     temporal_blur = blur.copy()
-    blur = np.minimum(blur * VIDEO_BLUR_SCALE, VIDEO_BLUR_MAX)
 
     blurred = proposed_pipeline.gaussian_blur_tensor(
         maps["I_sr"], proposed_pipeline.BLUR_SIGMA
@@ -278,11 +281,13 @@ def _processing_size(width, height):
     if width <= 0 or height <= 0:
         raise ValueError("동영상 해상도를 확인할 수 없습니다.")
     if USE_TRAINING_PROPOSED:
-        # Service inference receives a real LR frame, not an HR benchmark
-        # target. Do not apply the notebook's synthetic x4 degradation again.
-        ratio = min(1.0, MAX_PROPOSED_INPUT_SIDE / max(width, height))
-        process_width = max(1, int(round(width * ratio)))
-        process_height = max(1, int(round(height * ratio)))
+        # Reduce by PHOTO_VIDEO_DOWNSCALE (1 = as uploaded), then cap size.
+        process_width = max(1, width // PHOTO_VIDEO_DOWNSCALE)
+        process_height = max(1, height // PHOTO_VIDEO_DOWNSCALE)
+        if max(process_width, process_height) > MAX_PROPOSED_INPUT_SIDE:
+            ratio = MAX_PROPOSED_INPUT_SIDE / max(process_width, process_height)
+            process_width = max(1, int(round(process_width * ratio)))
+            process_height = max(1, int(round(process_height * ratio)))
     elif image_core.MAKE_LOW_RESOLUTION:
         process_width = max(2, width // image_core.DOWNSCALE)
         process_height = max(2, height // image_core.DOWNSCALE)
@@ -316,11 +321,8 @@ def process_video(video_path, save_path):
     # frame runs both Real-ESRGAN and the depth model.  The temporary 5 fps
     # verification preset preserves the duration while making it quick to
     # confirm that the complete enhancement pipeline works end-to-end.
-    output_fps = (
-        float(source_fps)
-        if USE_TRAINING_PROPOSED
-        else min(float(source_fps), VIDEO_MAX_FPS)
-    )
+    max_fps = PHOTO_VIDEO_MAX_FPS if USE_TRAINING_PROPOSED else VIDEO_MAX_FPS
+    output_fps = float(source_fps) if max_fps is None else min(float(source_fps), max_fps)
     input_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     input_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     process_width, process_height = _processing_size(input_width, input_height)
@@ -346,12 +348,11 @@ def process_video(video_path, save_path):
                 break
             frame_time = source_frame_index / source_fps
             source_frame_index += 1
-            if not USE_TRAINING_PROPOSED:
-                # Compatibility path keeps representative frames on a time
-                # grid. Proposed follows the notebook and processes all frames.
-                if frame_time + (0.5 / source_fps) < next_output_time:
-                    continue
-                next_output_time += 1.0 / output_fps
+            # Keep representative frames on the output_fps time grid
+            # (every frame when output_fps == source_fps).
+            if frame_time + (0.5 / source_fps) < next_output_time:
+                continue
+            next_output_time += 1.0 / output_fps
             if frame.shape[1] != process_width or frame.shape[0] != process_height:
                 frame = cv2.resize(
                     frame,

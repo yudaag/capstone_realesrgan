@@ -24,6 +24,13 @@ MIN_STRUCTURE_BLUR = 0.03
 BLUR_SIGMA = 2.5
 MASK_SIGMA = 1.0
 
+# Still images are fed as uploaded.  The x4 output of a 1000px-side input
+# (4000x4000 = 16M px) stays below torch.quantile's 2^24-element limit, so
+# only larger uploads are reduced.  On CUDA OOM the side is lowered step by
+# step down to MIN_IMAGE_INPUT_SIDE.
+MAX_IMAGE_INPUT_SIDE = 1000
+MIN_IMAGE_INPUT_SIDE = 512
+
 _processor = None
 _depth_model = None
 _sr_model = None
@@ -72,6 +79,35 @@ def tensor_to_bgr(value):
         .permute(1, 2, 0).cpu().numpy() * 255.0
     ).round().astype(np.uint8)
     return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+
+
+def fit_input_side(frame, max_side):
+    """Reduce only when the longer side exceeds max_side (aspect preserved)."""
+    height, width = frame.shape[:2]
+    if max(height, width) <= max_side:
+        return frame
+    ratio = max_side / max(height, width)
+    size = (max(1, int(round(width * ratio))), max(1, int(round(height * ratio))))
+    return cv2.resize(frame, size, interpolation=cv2.INTER_AREA)
+
+
+def enhance_image(frame, max_side=None, min_side=None):
+    """Run the training-time Proposed forward on a still image.
+
+    Returns (output_bgr, input_bgr_actually_used).
+    """
+    side = MAX_IMAGE_INPUT_SIDE if max_side is None else max_side
+    floor = MIN_IMAGE_INPUT_SIDE if min_side is None else min_side
+    while True:
+        lr = fit_input_side(frame, side)
+        try:
+            return tensor_to_bgr(proposed_forward(bgr_to_tensor(lr))), lr
+        except torch.cuda.OutOfMemoryError:
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            if side <= floor or max(lr.shape[:2]) <= floor:
+                raise
+            side = max(floor, int(side * 0.75))
 
 
 def depth_map_from_lr(lr, out_size):
