@@ -28,18 +28,19 @@ VIDEO_MAX_FPS = 5.0
 # Photo (landscape/animal) video. None = every frame, exactly like
 # depth_풍경_동물_파이프라인.ipynb. Set e.g. 5.0 for faster turnaround.
 PHOTO_VIDEO_MAX_FPS = 5.0
-# Same as the notebook: frames are reduced to 1/4 (INTER_AREA) and restored
-# x4, so the output has the original resolution.
-PHOTO_VIDEO_DOWNSCALE = 4
+# 1 = feed uploaded frames as-is and output x4 (real upscaling).
+# 4 = notebook benchmark mode: reduce to 1/4 first, output = original size
+#     (no visible improvement on an already low-resolution upload).
+PHOTO_VIDEO_DOWNSCALE = 1
 # The original Colab pipeline downsamples video frames before x4 restoration.
 # MAX_OUTPUT_SIDE remains as a safety limit when low-resolution mode is off.
 # Direct RRDBNet forward keeps the notebook math exact but cannot use
 # RealESRGANer's tile helper.  A 480px input side produces a 1920px x4 result
 # and stays within the Replicate T4 memory budget.
 MAX_OUTPUT_SIDE = 1920
-# OOM safety only: after the 1/4 reduction a 4K source is 960px, so this
-# limit is reached only by inputs larger than 4K.
-MAX_PROPOSED_INPUT_SIDE = 1000
+# Speed/OOM safety: larger frames are reduced so the longer side is 640px
+# (x4 output up to 2560px).
+MAX_PROPOSED_INPUT_SIDE = 640
 USE_TRAINING_PROPOSED = False
 
 
@@ -280,7 +281,7 @@ def _processing_size(width, height):
     if width <= 0 or height <= 0:
         raise ValueError("동영상 해상도를 확인할 수 없습니다.")
     if USE_TRAINING_PROPOSED:
-        # Notebook: lr = original // 4, then x4 -> original resolution.
+        # Reduce by PHOTO_VIDEO_DOWNSCALE (1 = as uploaded), then cap size.
         process_width = max(1, width // PHOTO_VIDEO_DOWNSCALE)
         process_height = max(1, height // PHOTO_VIDEO_DOWNSCALE)
         if max(process_width, process_height) > MAX_PROPOSED_INPUT_SIDE:
