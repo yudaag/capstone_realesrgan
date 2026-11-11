@@ -23,18 +23,23 @@ SCENE_CUT_THRESHOLD = 0.30
 # already temporally blended, so disabling dense optical flow removes a large
 # per-frame CPU cost without changing the restoration model itself.
 USE_OPTICAL_FLOW = False
-# Both photo (Proposed) and anime videos are sampled at up to 5 fps so web
-# turnaround stays short. Duration is preserved; motion is less smooth.
+# Anime video is sampled at up to 5 fps so web turnaround stays short.
 VIDEO_MAX_FPS = 5.0
+# Photo (landscape/animal) video. None = every frame, exactly like
+# depth_풍경_동물_파이프라인.ipynb. Set e.g. 5.0 for faster turnaround.
+PHOTO_VIDEO_MAX_FPS = 5.0
+# Same as the notebook: frames are reduced to 1/4 (INTER_AREA) and restored
+# x4, so the output has the original resolution.
+PHOTO_VIDEO_DOWNSCALE = 4
 # The original Colab pipeline downsamples video frames before x4 restoration.
 # MAX_OUTPUT_SIDE remains as a safety limit when low-resolution mode is off.
 # Direct RRDBNet forward keeps the notebook math exact but cannot use
 # RealESRGANer's tile helper.  A 480px input side produces a 1920px x4 result
 # and stays within the Replicate T4 memory budget.
 MAX_OUTPUT_SIDE = 1920
-# Preserve genuinely low-resolution uploads. Only oversized inputs are reduced
-# as an OOM safety fallback because direct RRDBNet forward cannot be tiled.
-MAX_PROPOSED_INPUT_SIDE = 640
+# OOM safety only: after the 1/4 reduction a 4K source is 960px, so this
+# limit is reached only by inputs larger than 4K.
+MAX_PROPOSED_INPUT_SIDE = 1000
 USE_TRAINING_PROPOSED = False
 
 
@@ -275,11 +280,13 @@ def _processing_size(width, height):
     if width <= 0 or height <= 0:
         raise ValueError("동영상 해상도를 확인할 수 없습니다.")
     if USE_TRAINING_PROPOSED:
-        # Service inference receives a real LR frame, not an HR benchmark
-        # target. Do not apply the notebook's synthetic x4 degradation again.
-        ratio = min(1.0, MAX_PROPOSED_INPUT_SIDE / max(width, height))
-        process_width = max(1, int(round(width * ratio)))
-        process_height = max(1, int(round(height * ratio)))
+        # Notebook: lr = original // 4, then x4 -> original resolution.
+        process_width = max(1, width // PHOTO_VIDEO_DOWNSCALE)
+        process_height = max(1, height // PHOTO_VIDEO_DOWNSCALE)
+        if max(process_width, process_height) > MAX_PROPOSED_INPUT_SIDE:
+            ratio = MAX_PROPOSED_INPUT_SIDE / max(process_width, process_height)
+            process_width = max(1, int(round(process_width * ratio)))
+            process_height = max(1, int(round(process_height * ratio)))
     elif image_core.MAKE_LOW_RESOLUTION:
         process_width = max(2, width // image_core.DOWNSCALE)
         process_height = max(2, height // image_core.DOWNSCALE)
@@ -313,7 +320,8 @@ def process_video(video_path, save_path):
     # frame runs both Real-ESRGAN and the depth model.  The temporary 5 fps
     # verification preset preserves the duration while making it quick to
     # confirm that the complete enhancement pipeline works end-to-end.
-    output_fps = min(float(source_fps), VIDEO_MAX_FPS)
+    max_fps = PHOTO_VIDEO_MAX_FPS if USE_TRAINING_PROPOSED else VIDEO_MAX_FPS
+    output_fps = float(source_fps) if max_fps is None else min(float(source_fps), max_fps)
     input_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     input_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     process_width, process_height = _processing_size(input_width, input_height)
@@ -339,7 +347,8 @@ def process_video(video_path, save_path):
                 break
             frame_time = source_frame_index / source_fps
             source_frame_index += 1
-            # Keep representative frames on a VIDEO_MAX_FPS time grid.
+            # Keep representative frames on the output_fps time grid
+            # (every frame when output_fps == source_fps).
             if frame_time + (0.5 / source_fps) < next_output_time:
                 continue
             next_output_time += 1.0 / output_fps
