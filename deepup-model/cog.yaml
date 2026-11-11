@@ -8,6 +8,7 @@ build:
     - "wget"
     - "libgl1"
     - "libglib2.0-0"
+  - "ffmpeg"
   run:
     - "git clone --depth 1 https://github.com/XPixelGroup/BasicSR.git /src/BasicSR"
     - "printf '__version__ = \"1.4.2\"\\n__gitsha__ = \"unknown\"\\nversion_info = (1, 4, 2)\\n' > /src/BasicSR/basicsr/version.py"
@@ -21,5 +22,7 @@ build:
     - "wget -q -O /src/weights/RealESRGAN_x4plus.pth https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth"
     - "python -c \"from transformers import AutoImageProcessor, AutoModelForDepthEstimation; m='depth-anything/Depth-Anything-V2-Small-hf'; AutoImageProcessor.from_pretrained(m); AutoModelForDepthEstimation.from_pretrained(m)\""
 
+
 image: "r8.im/yudaag/realesrgan_upscaling"
 predict: "predict.py:Predictor"
+
