@@ -24,7 +24,7 @@ from basicsr.archs.rrdbnet_arch import RRDBNet  # noqa: E402
 from realesrgan import RealESRGANer  # noqa: E402
 
 import image_pipeline  # noqa: E402
-import proposed_pipeline  # noqa: E402
+import photo_pipeline  # noqa: E402
 import video_pipeline  # noqa: E402
 
 
@@ -70,32 +70,6 @@ class Predictor(BasePredictor):
             local_files_only=True,
         ).to(self.device).eval()
 
-        # Load the fine-tuned RRDBNet exactly as cell 13 of the Colab
-        # notebook.  RealESRGANer.enhance() is intentionally not used for the
-        # Proposed path because the training-time forward returns tensors that
-        # feed the depth/structure fusion directly.
-        self.proposed_model = RRDBNet(
-            num_in_ch=3,
-            num_out_ch=3,
-            num_feat=64,
-            num_block=23,
-            num_grow_ch=32,
-            scale=4,
-        )
-        checkpoint = torch.load(str(WEIGHTS), map_location="cpu", weights_only=True)
-        if not isinstance(checkpoint, dict) or "params_ema" not in checkpoint:
-            raise KeyError("Best Proposed checkpoint must contain 'params_ema'.")
-        self.proposed_model.load_state_dict(checkpoint["params_ema"], strict=True)
-        self.proposed_model = self.proposed_model.to(self.device).eval()
-        for parameter in self.proposed_model.parameters():
-            parameter.requires_grad_(False)
-        proposed_pipeline.configure_models(
-            self.depth_processor,
-            self.depth_model,
-            self.proposed_model,
-            self.device,
-        )
-
         rrdbnet = RRDBNet(
             num_in_ch=3,
             num_out_ch=3,
@@ -116,7 +90,7 @@ class Predictor(BasePredictor):
             half=torch.cuda.is_available(),
         )
 
-        image_pipeline.configure_models(
+        photo_pipeline.configure_models(
             self.depth_processor,
             self.depth_model,
             self.device,
@@ -143,6 +117,12 @@ class Predictor(BasePredictor):
             pre_pad=0,
             half=torch.cuda.is_available(),
         )
+        image_pipeline.configure_models(
+            self.depth_processor,
+            self.depth_model,
+            self.device,
+            self.base_upsampler,
+        )
 
     def predict(
         self,
@@ -165,43 +145,22 @@ class Predictor(BasePredictor):
         # photo: fine-tuned RRDBNet + notebook's Depth/Structure pipeline
         # anime: depth_final.ipynb's original RealESRGAN_x4plus + same pipeline
         selected_upsampler = self.base_upsampler if category == "anime" else self.upsampler
-        image_pipeline.configure_models(
+        selected_pipeline = image_pipeline if category == "anime" else photo_pipeline
+        selected_pipeline.configure_models(
             self.depth_processor,
             self.depth_model,
             self.device,
             selected_upsampler,
         )
 
+        selected_pipeline.UPSCALE = scale
+        selected_pipeline.DOWNSCALE = 8 if category == "anime" else 1
+        video_pipeline.image_core = selected_pipeline
+
         if extension in video_pipeline.VIDEO_EXTENSIONS:
-            # Preserve the uploaded frame resolution.  The previous web build
-            # reduced every frame to 1/8 before inference, so the proposed
-            # landscape/animal model received an already destroyed image and
-            # the x4 result was still smaller than the original.  RealESRGANer
-            # still runs its trained x4 network internally; outscale=1 keeps
-            # the final video at the source resolution after restoration.
-            image_pipeline.UPSCALE = 1
-            image_pipeline.MAKE_LOW_RESOLUTION = False
-            video_pipeline.use_training_proposed(category == "photo")
+            selected_pipeline.MAKE_LOW_RESOLUTION = False
             result_path = video_pipeline.process_video(str(input_path), str(work_dir))
         else:
-            if category == "photo":
-                frame = cv2.imread(str(input_path), cv2.IMREAD_COLOR)
-                if frame is None:
-                    raise ValueError("이미지 파일을 읽을 수 없습니다.")
-                tensor = proposed_pipeline.bgr_to_tensor(frame)
-                result = proposed_pipeline.proposed_forward(tensor)
-                output = proposed_pipeline.tensor_to_bgr(result)
-                if scale != proposed_pipeline.SCALE:
-                    output = cv2.resize(
-                        output,
-                        (frame.shape[1] * scale, frame.shape[0] * scale),
-                        interpolation=cv2.INTER_AREA,
-                    )
-                result_path = work_dir / "deepup_result.png"
-                if not cv2.imwrite(str(result_path), output):
-                    raise RuntimeError("결과 이미지를 저장하지 못했습니다.")
-            else:
-                image_pipeline.UPSCALE = scale
-                image_pipeline.MAKE_LOW_RESOLUTION = True
-                result_path = image_pipeline.process_image(str(input_path), str(work_dir))
+            selected_pipeline.MAKE_LOW_RESOLUTION = True
+            result_path = selected_pipeline.process_image(str(input_path), str(work_dir))
         return Path(str(result_path))

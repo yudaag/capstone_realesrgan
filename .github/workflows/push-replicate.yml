@@ -7,25 +7,18 @@ jobs:
   push-model:
     runs-on: ubuntu-latest
     timeout-minutes: 180
-
     steps:
       - name: Free disk space
         uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: false
           docker-images: false
-
       - name: Download repository
         uses: actions/checkout@v4
-
       - name: Install and login to Cog
         uses: replicate/setup-cog@v2
         with:
-          cog-version: "v0.22.0"
-          token: ${{ secrets.REPLICATE_CLI_AUTH_TOKEN }}
-
+          token: ${{ secrets.REPLICATE_API_TOKEN }}
       - name: Build and push model
         working-directory: deepup-model
-        # Cog v0.22 generates the schema statically, so a hosted runner can
-        # build and publish this GPU model without launching it locally.
         run: cog push r8.im/yudaag/realesrgan_upscaling
