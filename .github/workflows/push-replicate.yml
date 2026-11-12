@@ -1,12 +1,15 @@
 name: Push model to Replicate
 
+
 on:
   workflow_dispatch:
+
 
 jobs:
   push-model:
     runs-on: ubuntu-latest
     timeout-minutes: 180
+
 
     steps:
       - name: Free disk space
@@ -15,14 +18,18 @@ jobs:
           tool-cache: false
           docker-images: false
 
+
       - name: Download repository
         uses: actions/checkout@v4
+
 
       - name: Install and login to Cog
         uses: replicate/setup-cog@v2
         with:
           token: ${{ secrets.REPLICATE_API_TOKEN }}
 
+
       - name: Build and push model
         working-directory: deepup-model
-        run: cog push r8.im/yudaag/realesrgan_upscaling
+        run: cog push --x-fast r8.im/yudaag/realesrgan_upscaling
+
