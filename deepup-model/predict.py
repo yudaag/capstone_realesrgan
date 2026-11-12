@@ -24,7 +24,6 @@ from basicsr.archs.rrdbnet_arch import RRDBNet  # noqa: E402
 from realesrgan import RealESRGANer  # noqa: E402
 
 import image_pipeline  # noqa: E402
-import photo_pipeline  # noqa: E402
 import video_pipeline  # noqa: E402
 
 
@@ -90,7 +89,7 @@ class Predictor(BasePredictor):
             half=torch.cuda.is_available(),
         )
 
-        photo_pipeline.configure_models(
+        image_pipeline.configure_models(
             self.depth_processor,
             self.depth_model,
             self.device,
@@ -117,12 +116,6 @@ class Predictor(BasePredictor):
             pre_pad=0,
             half=torch.cuda.is_available(),
         )
-        image_pipeline.configure_models(
-            self.depth_processor,
-            self.depth_model,
-            self.device,
-            self.base_upsampler,
-        )
 
     def predict(
         self,
@@ -145,22 +138,23 @@ class Predictor(BasePredictor):
         # photo: fine-tuned RRDBNet + notebook's Depth/Structure pipeline
         # anime: depth_final.ipynb's original RealESRGAN_x4plus + same pipeline
         selected_upsampler = self.base_upsampler if category == "anime" else self.upsampler
-        selected_pipeline = image_pipeline if category == "anime" else photo_pipeline
-        selected_pipeline.configure_models(
+        image_pipeline.configure_models(
             self.depth_processor,
             self.depth_model,
             self.device,
             selected_upsampler,
         )
 
-        selected_pipeline.UPSCALE = scale
-        selected_pipeline.DOWNSCALE = 8 if category == "anime" else 1
-        video_pipeline.image_core = selected_pipeline
+        image_pipeline.DOWNSCALE = 8
 
         if extension in video_pipeline.VIDEO_EXTENSIONS:
-            selected_pipeline.MAKE_LOW_RESOLUTION = False
+            # Match the original Colab notebook: reduce each frame to 1/8,
+            # then run Real-ESRGAN x4. This keeps video inference practical.
+            image_pipeline.UPSCALE = 4
+            image_pipeline.MAKE_LOW_RESOLUTION = True
             result_path = video_pipeline.process_video(str(input_path), str(work_dir))
         else:
-            selected_pipeline.MAKE_LOW_RESOLUTION = True
-            result_path = selected_pipeline.process_image(str(input_path), str(work_dir))
+            image_pipeline.UPSCALE = scale
+            image_pipeline.MAKE_LOW_RESOLUTION = category == "anime"
+            result_path = image_pipeline.process_image(str(input_path), str(work_dir))
         return Path(str(result_path))
