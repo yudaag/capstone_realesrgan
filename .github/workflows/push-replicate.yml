@@ -18,7 +18,7 @@ jobs:
       - name: Install and login to Cog
         uses: replicate/setup-cog@v2
         with:
-          token: ${{ secrets.REPLICATE_CLI_AUTH_TOKEN }}
+          token: ${{ secrets.REPLICATE_API_TOKEN }}
       - name: Build and push model
         working-directory: deepup-model
         run: cog push r8.im/yudaag/realesrgan_upscaling
