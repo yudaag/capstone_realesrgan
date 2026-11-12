@@ -1,6 +1,7 @@
 import { ArrowRight, BarChart3, Layers3, ScanSearch, Sparkles } from 'lucide-react';
 import { AccountMenu } from '@/components/account-menu';
 import { EnhancementWorkspace } from '@/components/enhancement-workspace';
+import { ProjectVideo } from '@/components/project-video';
 
 export default function Home() {
   return (
@@ -23,27 +24,27 @@ export default function Home() {
 
       <section id="service" className="relative overflow-hidden border-b border-white/10">
         <div className="hero-glow absolute inset-0 opacity-80" />
-        <div className="relative mx-auto grid min-h-[calc(100vh-72px)] max-w-[1600px] gap-14 px-6 py-16 lg:grid-cols-[.8fr_1.2fr] lg:items-center lg:px-12 xl:gap-24">
-          <div>
-            <div className="mb-8 flex items-center gap-3 text-sm font-bold text-white/80"><span className="grid size-8 place-items-center rounded-md bg-[#275cff]"><Sparkles className="size-4" /></span>AI IMAGE &amp; VIDEO ENHANCEMENT</div>
-            <h1 className="max-w-[650px] text-[clamp(48px,6vw,92px)] font-black leading-[1.02] tracking-[-.065em]">
-              깊이를 이해하는<br />
-              <span className="text-[#6f91ff]">AI 화질 개선</span>
+        <div className="relative mx-auto max-w-[1440px] px-6 py-16 lg:px-12 lg:py-24">
+          <div className="w-full">
+            <div className="mb-7 flex items-center justify-center gap-3 text-xs font-bold tracking-[.08em] text-white/70"><span className="grid size-8 place-items-center rounded-xl bg-[#275cff] shadow-[0_8px_30px_rgba(39,92,255,.38)]"><Sparkles className="size-4" /></span>AI IMAGE &amp; VIDEO ENHANCEMENT</div>
+            <h1 className="whitespace-nowrap text-center text-[clamp(38px,5.1vw,76px)] font-black leading-[1.02] tracking-[-.065em]">
+              <span>깊이를 이해하는 </span>
+              <span className="bg-gradient-to-r from-[#88a2ff] to-[#4f78ff] bg-clip-text text-transparent">AI 화질 개선</span>
             </h1>
-            <p className="mt-7 max-w-xl text-base leading-7 text-white/58 lg:text-lg">이미지와 영상의 깊이 정보를 분석해 중요한 영역은 더 선명하게, 배경은 더 자연스럽게 개선합니다.</p>
+            <p className="mx-auto mt-6 max-w-3xl text-center text-base leading-7 text-white/48 lg:whitespace-nowrap lg:text-lg">이미지와 영상의 깊이 정보를 분석해 중요한 영역은 더 선명하게, 배경은 더 자연스럽게 개선합니다.</p>
 
-            <div className="mt-10"><EnhancementWorkspace /></div>
+            <div className="mt-12 w-full"><EnhancementWorkspace /></div>
           </div>
 
-          <div className="lg:pt-16">
+          <div className="mt-20 border-t border-white/10 pt-16 lg:mt-28 lg:pt-20">
             <div className="mb-5 flex items-end justify-between">
-              <div><p className="text-xs font-bold tracking-[.18em] text-[#6f91ff]">PROJECT VIDEO</p><h2 className="mt-2 text-2xl font-extrabold tracking-[-.03em]">캡스톤 프로젝트 발표 영상</h2></div>
-              <span className="hidden rounded-full border border-white/15 px-3 py-1.5 text-[10px] font-bold text-white/55 sm:block">CAPSTONE</span>
+              <div><p className="text-xs font-bold tracking-[.18em] text-[#6f91ff]">PROCESSING PIPELINE</p><h2 className="mt-2 text-2xl font-extrabold tracking-[-.03em]">알고리즘 적용 과정</h2></div>
+              <span className="hidden rounded-full border border-white/15 px-3 py-1.5 text-[10px] font-bold text-white/55 sm:block">DEPTH-AWARE</span>
             </div>
-            <div className="relative aspect-video overflow-hidden rounded-[26px] border border-white/15 bg-[#101828] shadow-[0_30px_90px_rgba(0,0,0,.5)]">
-              <video src="/capstone-presentation.mp4" aria-label="캡스톤 프로젝트 발표 영상" className="h-full w-full object-contain" autoPlay muted loop playsInline controls />
+            <div className="relative aspect-[1708/696] overflow-hidden border border-white/15 bg-[#101828] shadow-[0_30px_90px_rgba(0,0,0,.5)]">
+              <ProjectVideo />
             </div>
-            <p className="mt-4 text-xs leading-5 text-white/40">깊이 정보를 활용한 선택적 화질 개선 프로젝트의 기획 배경과 구현 방향을 소개합니다.</p>
+            <p className="mt-4 text-xs leading-5 text-white/40">원본 입력부터 Real-ESRGAN 복원, 경계 분석과 Depth 추정, 영역별 가중치 적용까지 핵심 화질 개선 과정을 보여줍니다.</p>
           </div>
         </div>
       </section>

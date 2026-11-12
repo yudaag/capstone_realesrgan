@@ -19,9 +19,6 @@ VIDEO_STRUCTURE_ALPHA = 0.70
 VIDEO_BLUR_ALPHA = 0.80
 SCENE_CUT_THRESHOLD = 0.30
 USE_OPTICAL_FLOW = True
-# The original Colab pipeline downsamples video frames before x4 restoration.
-# MAX_OUTPUT_SIDE remains as a safety limit when low-resolution mode is off.
-MAX_OUTPUT_SIDE = 3840
 
 
 class TemporalState:
@@ -187,23 +184,6 @@ def _mux_original_audio(original_path, silent_path, output_path):
         shutil.move(silent_path, output_path)
 
 
-def _processing_size(width, height):
-    if width <= 0 or height <= 0:
-        raise ValueError("동영상 해상도를 확인할 수 없습니다.")
-    if image_core.MAKE_LOW_RESOLUTION:
-        process_width = max(2, width // image_core.DOWNSCALE)
-        process_height = max(2, height // image_core.DOWNSCALE)
-    else:
-        max_input_side = max(2, MAX_OUTPUT_SIDE // image_core.UPSCALE)
-        ratio = min(1.0, max_input_side / max(width, height))
-        process_width = max(2, int(round(width * ratio)))
-        process_height = max(2, int(round(height * ratio)))
-    # yuv420/mp4 encoders require even dimensions.
-    process_width -= process_width % 2
-    process_height -= process_height % 2
-    return process_width, process_height
-
-
 def process_video(video_path, save_path):
     capture = cv2.VideoCapture(video_path)
     if not capture.isOpened():
@@ -214,10 +194,9 @@ def process_video(video_path, save_path):
         fps = 30.0
     input_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     input_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    process_width, process_height = _processing_size(input_width, input_height)
     output_size = (
-        process_width * image_core.UPSCALE,
-        process_height * image_core.UPSCALE,
+        input_width * image_core.UPSCALE,
+        input_height * image_core.UPSCALE,
     )
     os.makedirs(save_path, exist_ok=True)
     silent_path = os.path.join(save_path, "deepup_video_silent.mp4")
@@ -235,19 +214,10 @@ def process_video(video_path, save_path):
             ok, frame = capture.read()
             if not ok:
                 break
-            if frame.shape[1] != process_width or frame.shape[0] != process_height:
-                frame = cv2.resize(
-                    frame,
-                    (process_width, process_height),
-                    interpolation=cv2.INTER_AREA,
-                )
             writer.write(process_frame(frame, state))
     finally:
         capture.release()
         writer.release()
-
-    if not os.path.exists(silent_path) or os.path.getsize(silent_path) == 0:
-        raise RuntimeError("동영상 인코딩 결과가 비어 있습니다.")
 
     _mux_original_audio(video_path, silent_path, output_path)
     return output_path

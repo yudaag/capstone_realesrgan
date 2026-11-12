@@ -38,6 +38,7 @@ export default function LoginPage() {
       const response = await fetch(`/api/auth/${mode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ username: data.get('username'), password }),
         signal: controller.signal,
       });
@@ -47,6 +48,8 @@ export default function LoginPage() {
         setError(body.error || '계정 처리 중 오류가 발생했습니다.');
         return;
       }
+      sessionStorage.setItem('deepup_browser_session', 'active');
+      sessionStorage.setItem('deepup_allow_navigation_once', 'true');
       window.location.href = body.role === 'admin' ? '/admin' : '/';
     } catch {
       setError('서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');
@@ -77,7 +80,7 @@ export default function LoginPage() {
             <p className="mt-6 max-w-sm text-sm leading-7 text-white/52">이미지와 영상을 개선하고, 처리 이력과 결과 파일을 언제든 다시 확인하세요.</p>
           </div>
           <div className="relative space-y-4 text-sm font-bold text-white/62">
-            <p className="flex items-center gap-3"><Sparkles className="size-4 text-[#7897ff]" /> 최대 500MB 이미지·영상 처리</p>
+            <p className="flex items-center gap-3"><Sparkles className="size-4 text-[#7897ff]" /> 최대 90MB 이미지·영상 처리</p>
             <p className="flex items-center gap-3"><ShieldCheck className="size-4 text-[#7897ff]" /> 결과 저장 및 작업 이력 관리</p>
           </div>
         </aside>
