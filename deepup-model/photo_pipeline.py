@@ -152,7 +152,7 @@ def proposed_forward(model, lr, return_maps=False):
 
     image_sr = image_sr.float()
     lanczos = F.interpolate(
-        lr.float(), scale_factor=UPSCALE, mode="bicubic", align_corners=False
+        lr.float(), scale_factor=MODEL_SCALE, mode="bicubic", align_corners=False
     )
     depth = depth_map_from_lr(lr, image_sr.shape[-2:]).to(
         device=image_sr.device, dtype=torch.float32
@@ -228,6 +228,24 @@ def process_core(image_bgr, state=None):
 
     with torch.inference_mode():
         proposed, maps = proposed_forward(sr_model, lr, return_maps=True)
+
+        # The trained network is native x4. Keep the notebook path untouched
+        # for x4, and only resize its completed tensors when the API requests x2.
+        target_size = (
+            image_bgr.shape[0] * UPSCALE,
+            image_bgr.shape[1] * UPSCALE,
+        )
+        if proposed.shape[-2:] != target_size:
+            proposed = F.interpolate(
+                proposed, size=target_size, mode="bicubic", align_corners=False
+            )
+            maps = {
+                key: F.interpolate(
+                    value, size=target_size, mode="bilinear", align_corners=False
+                )
+                for key, value in maps.items()
+            }
+
         blurred_tensor = gaussian_blur_tensor(maps["I_sr"], BLUR_SIGMA)
 
     image_sr = _as_bgr(maps["I_sr"])
