@@ -70,7 +70,13 @@ class Predictor(BasePredictor):
             local_files_only=True,
         ).to(self.device).eval()
 
-        rrdbnet = RRDBNet(
+        # Match the Colab landscape/animal notebook exactly: load params_ema
+        # into RRDBNet and call the network directly in proposed_forward().
+        checkpoint = torch.load(str(WEIGHTS), map_location="cpu", weights_only=True)
+        if not isinstance(checkpoint, dict) or "params_ema" not in checkpoint:
+            raise KeyError("Fine-tuned checkpoint must contain params_ema.")
+
+        self.photo_model = RRDBNet(
             num_in_ch=3,
             num_out_ch=3,
             num_feat=64,
@@ -78,23 +84,16 @@ class Predictor(BasePredictor):
             num_grow_ch=32,
             scale=4,
         )
-        self.upsampler = RealESRGANer(
-            scale=4,
-            model_path=str(WEIGHTS),
-            model=rrdbnet,
-            # Process large photo/landscape inputs in smaller tiles so the
-            # fine-tuned RRDBNet does not exhaust the Replicate T4 GPU memory.
-            tile=256,
-            tile_pad=10,
-            pre_pad=0,
-            half=torch.cuda.is_available(),
-        )
+        self.photo_model.load_state_dict(checkpoint["params_ema"], strict=True)
+        self.photo_model = self.photo_model.to(self.device).eval()
+        for parameter in self.photo_model.parameters():
+            parameter.requires_grad_(False)
 
         photo_pipeline.configure_models(
             self.depth_processor,
             self.depth_model,
             self.device,
-            self.upsampler,
+            self.photo_model,
         )
 
         base_model = RRDBNet(
@@ -142,16 +141,24 @@ class Predictor(BasePredictor):
         input_path = work_dir / f"input{extension}"
         shutil.copyfile(source, input_path)
 
-        # photo: fine-tuned RRDBNet + notebook's Depth/Structure pipeline
-        # anime: depth_final.ipynb's original RealESRGAN_x4plus + same pipeline
-        selected_upsampler = self.base_upsampler if category == "anime" else self.upsampler
-        selected_pipeline = image_pipeline if category == "anime" else photo_pipeline
-        selected_pipeline.configure_models(
-            self.depth_processor,
-            self.depth_model,
-            self.device,
-            selected_upsampler,
-        )
+        # Keep anime unchanged. Photo uses the notebook's direct fine-tuned
+        # RRDBNet Proposed forward for both images and video frames.
+        if category == "anime":
+            selected_pipeline = image_pipeline
+            selected_pipeline.configure_models(
+                self.depth_processor,
+                self.depth_model,
+                self.device,
+                self.base_upsampler,
+            )
+        else:
+            selected_pipeline = photo_pipeline
+            selected_pipeline.configure_models(
+                self.depth_processor,
+                self.depth_model,
+                self.device,
+                self.photo_model,
+            )
 
         selected_pipeline.UPSCALE = scale
         selected_pipeline.DOWNSCALE = 8 if category == "anime" else 1
