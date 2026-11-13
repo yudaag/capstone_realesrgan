@@ -267,11 +267,11 @@ def process_core(image_bgr, state=None):
         final = _as_bgr(proposed)
     else:
         if state.prev_depth is not None and state.prev_depth.shape == depth.shape:
-            depth = 0.80 * state.prev_depth + 0.20 * depth
+            depth = 0.80 * depth + 0.20 * state.prev_depth
         if state.prev_structure is not None and state.prev_structure.shape == structure.shape:
-            structure = 0.70 * state.prev_structure + 0.30 * structure
+            structure = 0.70 * structure + 0.30 * state.prev_structure
         if state.prev_blur is not None and state.prev_blur.shape == blur.shape:
-            blur = 0.80 * state.prev_blur + 0.20 * blur
+            blur = 0.80 * blur + 0.20 * state.prev_blur
         state.prev_frame = image_bgr.copy()
         state.prev_depth = depth.copy()
         state.prev_structure = structure.copy()
