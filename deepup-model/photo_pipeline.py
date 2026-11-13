@@ -30,6 +30,7 @@ MIN_STRUCTURE_BLUR = 0.03
 BLUR_SIGMA = 2.5
 MASK_SIGMA = 1.0
 POWER_EPS = 1e-4
+MODEL_SCALE = 4
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 
