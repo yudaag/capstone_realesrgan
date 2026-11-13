@@ -23,7 +23,7 @@ sys.modules["torchvision.transforms.functional_tensor"] = functional_tensor
 from basicsr.archs.rrdbnet_arch import RRDBNet  # noqa: E402
 from realesrgan import RealESRGANer  # noqa: E402
 
-import image_pipeline  # noqa: E402
+import pipeline as anime_pipeline  # noqa: E402
 import photo_pipeline  # noqa: E402
 import video_pipeline  # noqa: E402
 
@@ -37,7 +37,7 @@ DEPTH_MODEL_ID = "depth-anything/Depth-Anything-V2-Small-hf"
 def detect_extension(source: SystemPath) -> str:
     """Detect media type when Replicate downloads a URL without a suffix."""
     suffix = source.suffix.lower()
-    if suffix in image_pipeline.IMAGE_EXTENSIONS | video_pipeline.VIDEO_EXTENSIONS:
+    if suffix in anime_pipeline.IMAGE_EXTENSIONS | video_pipeline.VIDEO_EXTENSIONS:
         return suffix
     try:
         with Image.open(source) as image:
@@ -116,7 +116,7 @@ class Predictor(BasePredictor):
             pre_pad=0,
             half=torch.cuda.is_available(),
         )
-        image_pipeline.configure_models(
+        anime_pipeline.configure_models(
             self.depth_processor,
             self.depth_model,
             self.device,
@@ -144,7 +144,9 @@ class Predictor(BasePredictor):
         # Keep anime unchanged. Photo uses the notebook's direct fine-tuned
         # RRDBNet Proposed forward for both images and video frames.
         if category == "anime":
-            selected_pipeline = image_pipeline
+            # Use the original, previously verified anime pipeline verbatim.
+            # The photo/animal path remains isolated in photo_pipeline.py.
+            selected_pipeline = anime_pipeline
             selected_pipeline.configure_models(
                 self.depth_processor,
                 self.depth_model,
@@ -191,4 +193,7 @@ class Predictor(BasePredictor):
         else:
             selected_pipeline.MAKE_LOW_RESOLUTION = True
             result_path = selected_pipeline.process_image(str(input_path), str(work_dir))
+            # The original anime pipeline returns (result_path, save_dir).
+            if isinstance(result_path, tuple):
+                result_path = result_path[0]
         return Path(str(result_path))
