@@ -58,7 +58,7 @@ def detect_extension(source: SystemPath) -> str:
 
 class Predictor(BasePredictor):
     def setup(self) -> None:
-        """Load both models once when the Replicate worker starts."""
+        """Load shared depth components and defer category models until needed."""
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.depth_processor = AutoImageProcessor.from_pretrained(
@@ -69,6 +69,17 @@ class Predictor(BasePredictor):
             DEPTH_MODEL_ID,
             local_files_only=True,
         ).to(self.device).eval()
+
+        # Replicate does not expose prediction inputs while setup() runs. Loading
+        # both large upscalers here made every cold start pay for two categories,
+        # even though a request uses only one. Load the selected upscaler lazily
+        # in predict() and reuse it for later requests on the same worker.
+        self.photo_model = None
+        self.base_upsampler = None
+
+    def _ensure_photo_model(self) -> None:
+        if self.photo_model is not None:
+            return
 
         # Match the Colab landscape/animal notebook exactly: load params_ema
         # into RRDBNet and call the network directly in proposed_forward().
@@ -95,6 +106,10 @@ class Predictor(BasePredictor):
             self.device,
             self.photo_model,
         )
+
+    def _ensure_anime_model(self) -> None:
+        if self.base_upsampler is not None:
+            return
 
         base_model = RRDBNet(
             num_in_ch=3,
@@ -144,6 +159,7 @@ class Predictor(BasePredictor):
         # Keep anime unchanged. Photo uses the notebook's direct fine-tuned
         # RRDBNet Proposed forward for both images and video frames.
         if category == "anime":
+            self._ensure_anime_model()
             # Use the original, previously verified anime pipeline verbatim.
             # The photo/animal path remains isolated in photo_pipeline.py.
             selected_pipeline = anime_pipeline
@@ -154,6 +170,7 @@ class Predictor(BasePredictor):
                 self.base_upsampler,
             )
         else:
+            self._ensure_photo_model()
             selected_pipeline = photo_pipeline
             selected_pipeline.configure_models(
                 self.depth_processor,
