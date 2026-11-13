@@ -102,6 +102,11 @@ def process_frame(frame, state):
     if detect_scene_cut(state.prev_frame, frame):
         state.reset()
 
+    # Landscape/animal video frames use the same Colab Proposed process_core.
+    # The anime path below remains unchanged.
+    if image_core.__name__ == "photo_pipeline":
+        return image_core.process_core(frame, state=state)["final"]
+
     lanczos = cv2.resize(frame, (out_width, out_height), interpolation=cv2.INTER_LANCZOS4)
     with torch.no_grad():
         sr_image, _ = image_core.upsampler.enhance(frame, outscale=image_core.UPSCALE)
