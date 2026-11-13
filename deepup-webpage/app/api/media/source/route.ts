@@ -23,6 +23,11 @@ export async function GET(request: Request) {
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set('etag', object.httpEtag);
+  // Replicate downloads large inputs with a streaming HTTP client. Without an
+  // explicit length the Worker response is chunked, and large MOV files can be
+  // interpreted as a broken/incomplete read after the first 16 KiB chunk.
+  headers.set('content-length', String(object.size));
+  headers.set('accept-ranges', 'bytes');
   headers.set('cache-control', 'private, max-age=300');
   return new Response(object.body, { headers });
 }
