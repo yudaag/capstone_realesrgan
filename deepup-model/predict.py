@@ -160,7 +160,28 @@ class Predictor(BasePredictor):
                 self.photo_model,
             )
 
-        selected_pipeline.UPSCALE = scale
+        effective_scale = scale
+        if extension in video_pipeline.VIDEO_EXTENSIONS:
+            # OpenCV's mp4v writer commonly fails before inference when a
+            # high-resolution input is enlarged to an 8K-class frame. Keep
+            # video output within a broadly supported 4K-sized pixel budget;
+            # still images continue to use the requested x2/x4 scale.
+            capture = cv2.VideoCapture(str(input_path))
+            try:
+                input_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+                input_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            finally:
+                capture.release()
+            if input_width <= 0 or input_height <= 0:
+                raise ValueError("동영상 해상도를 확인하지 못했습니다.")
+            while effective_scale > 1 and (
+                input_width * effective_scale > 3840
+                or input_height * effective_scale > 2160
+                or input_width * input_height * effective_scale**2 > 8_294_400
+            ):
+                effective_scale //= 2
+
+        selected_pipeline.UPSCALE = effective_scale
         selected_pipeline.DOWNSCALE = 8 if category == "anime" else 1
         video_pipeline.image_core = selected_pipeline
 
