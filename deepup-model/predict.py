@@ -128,14 +128,10 @@ class Predictor(BasePredictor):
             scale=4,
             model_path=str(BASE_WEIGHTS),
             model=base_model,
-            # Video frames and large anime images can exceed a T4 GPU's memory
-            # when processed in one pass. Tiling preserves the same model and
-            # parameters while limiting peak VRAM usage.
-            # A 256px tile splits common HD frames into dozens of pieces and
-            # makes short videos take tens of minutes on a T4. FP16 inference
-            # fits 512px tiles while cutting the number of tile passes by
-            # roughly four times.
-            tile=512,
+            # Match the original Colab pipeline. Low-resolution media is much
+            # faster when the whole frame is processed in one pass. Large
+            # video inputs switch back to 512px tiles below to avoid CUDA OOM.
+            tile=0,
             tile_pad=10,
             pre_pad=0,
             half=torch.cuda.is_available(),
@@ -208,6 +204,15 @@ class Predictor(BasePredictor):
                 or input_width * input_height * effective_scale**2 > 8_294_400
             ):
                 effective_scale //= 2
+
+            if category == "anime":
+                # Tiling adds dozens of sequential model calls per frame and
+                # made short low-resolution clips take many minutes. Use the
+                # notebook's full-frame path through 720p, retaining tiles only
+                # for inputs likely to exceed a T4 GPU's memory.
+                self.base_upsampler.tile = (
+                    0 if input_width * input_height <= 1280 * 720 else 512
+                )
         selected_pipeline.UPSCALE = effective_scale
         selected_pipeline.DOWNSCALE = 8 if category == "anime" else 1
 
