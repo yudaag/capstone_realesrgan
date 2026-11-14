@@ -1,6 +1,8 @@
 """Fine-tuned landscape/animal pipeline matching the Colab Proposed forward."""
 
 import os
+import shutil
+import subprocess
 
 import cv2
 import numpy as np
@@ -33,6 +35,15 @@ POWER_EPS = 1e-4
 MODEL_SCALE = 4
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
+
+
+class TemporalState:
+    def __init__(self):
+        self.prev_frame = None
+        self.prev_depth = None
+        self.prev_structure = None
+        self.prev_blur = None
 
 
 def configure_models(depth_processor, loaded_depth_model, torch_device, proposed_model):
@@ -329,3 +340,56 @@ def process_image(image_path, save_path):
     if not cv2.imwrite(result_path, result):
         raise RuntimeError("결과 이미지를 저장하지 못했습니다.")
     return result_path
+
+
+def _mux_original_audio(original_path, silent_path, output_path):
+    if shutil.which("ffmpeg") is None:
+        shutil.move(silent_path, output_path)
+        return
+    completed = subprocess.run([
+        "ffmpeg", "-y", "-i", silent_path, "-i", original_path,
+        "-map", "0:v:0", "-map", "1:a?", "-c:v", "copy", "-c:a", "aac",
+        "-shortest", output_path,
+    ], capture_output=True, text=True)
+    if completed.returncode != 0:
+        shutil.move(silent_path, output_path)
+
+
+def process_video(video_path, save_path):
+    capture = cv2.VideoCapture(video_path)
+    if not capture.isOpened():
+        raise ValueError("지원하지 않거나 손상된 동영상 파일입니다.")
+    fps = capture.get(cv2.CAP_PROP_FPS)
+    if not np.isfinite(fps) or fps <= 0:
+        fps = 30.0
+    input_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+    input_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    output_size = (input_width * UPSCALE, input_height * UPSCALE)
+    os.makedirs(save_path, exist_ok=True)
+    silent_path = os.path.join(save_path, "deepup_video_silent.mp4")
+    output_path = os.path.join(save_path, "deepup_result.mp4")
+    writer = cv2.VideoWriter(silent_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, output_size)
+    if not writer.isOpened():
+        capture.release()
+        raise RuntimeError("결과 동영상 파일을 만들지 못했습니다.")
+    state = TemporalState()
+    try:
+        while True:
+            ok, frame = capture.read()
+            if not ok:
+                break
+            writer.write(process_core(frame, state=state)["final"])
+    finally:
+        capture.release()
+        writer.release()
+    _mux_original_audio(video_path, silent_path, output_path)
+    return output_path
+
+
+def process_media(input_path, save_path):
+    extension = os.path.splitext(input_path)[1].lower()
+    if extension in IMAGE_EXTENSIONS:
+        return process_image(input_path, save_path)
+    if extension in VIDEO_EXTENSIONS:
+        return process_video(input_path, save_path)
+    raise ValueError("지원하지 않는 파일 형식입니다.")

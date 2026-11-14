@@ -25,7 +25,6 @@ from realesrgan import RealESRGANer  # noqa: E402
 
 import pipeline as anime_pipeline  # noqa: E402
 import photo_pipeline  # noqa: E402
-import video_pipeline  # noqa: E402
 
 
 ROOT = SystemPath(__file__).resolve().parent
@@ -37,7 +36,13 @@ DEPTH_MODEL_ID = "depth-anything/Depth-Anything-V2-Small-hf"
 def detect_extension(source: SystemPath) -> str:
     """Detect media type when Replicate downloads a URL without a suffix."""
     suffix = source.suffix.lower()
-    if suffix in anime_pipeline.IMAGE_EXTENSIONS | video_pipeline.VIDEO_EXTENSIONS:
+    supported = (
+        anime_pipeline.IMAGE_EXTENSIONS
+        | anime_pipeline.VIDEO_EXTENSIONS
+        | photo_pipeline.IMAGE_EXTENSIONS
+        | photo_pipeline.VIDEO_EXTENSIONS
+    )
+    if suffix in supported:
         return suffix
     try:
         with Image.open(source) as image:
@@ -184,7 +189,7 @@ class Predictor(BasePredictor):
             )
 
         effective_scale = scale
-        if extension in video_pipeline.VIDEO_EXTENSIONS:
+        if extension in selected_pipeline.VIDEO_EXTENSIONS:
             # OpenCV's mp4v writer commonly fails before inference when a
             # high-resolution input is enlarged to an 8K-class frame. Keep
             # video output within a broadly supported 4K-sized pixel budget;
@@ -203,14 +208,12 @@ class Predictor(BasePredictor):
                 or input_width * input_height * effective_scale**2 > 8_294_400
             ):
                 effective_scale //= 2
-
         selected_pipeline.UPSCALE = effective_scale
         selected_pipeline.DOWNSCALE = 8 if category == "anime" else 1
-        video_pipeline.image_core = selected_pipeline
 
-        if extension in video_pipeline.VIDEO_EXTENSIONS:
+        if extension in selected_pipeline.VIDEO_EXTENSIONS:
             selected_pipeline.MAKE_LOW_RESOLUTION = False
-            result_path = video_pipeline.process_video(str(input_path), str(work_dir))
+            result_path = selected_pipeline.process_video(str(input_path), str(work_dir))
         else:
             selected_pipeline.MAKE_LOW_RESOLUTION = True
             result_path = selected_pipeline.process_image(str(input_path), str(work_dir))
