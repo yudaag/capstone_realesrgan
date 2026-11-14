@@ -126,7 +126,11 @@ class Predictor(BasePredictor):
             # Video frames and large anime images can exceed a T4 GPU's memory
             # when processed in one pass. Tiling preserves the same model and
             # parameters while limiting peak VRAM usage.
-            tile=256,
+            # A 256px tile splits common HD frames into dozens of pieces and
+            # makes short videos take tens of minutes on a T4. FP16 inference
+            # fits 512px tiles while cutting the number of tile passes by
+            # roughly four times.
+            tile=512,
             tile_pad=10,
             pre_pad=0,
             half=torch.cuda.is_available(),
