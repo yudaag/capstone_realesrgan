@@ -206,13 +206,13 @@ class Predictor(BasePredictor):
                 effective_scale //= 2
 
             if category == "anime":
-                # Tiling adds dozens of sequential model calls per frame and
-                # made short low-resolution clips take many minutes. Use the
-                # notebook's full-frame path through 720p, retaining tiles only
-                # for inputs likely to exceed a T4 GPU's memory.
-                self.base_upsampler.tile = (
-                    0 if input_width * input_height <= 1280 * 720 else 512
-                )
+                # Large but blurry source files were being expanded to 4K even
+                # though the useful detail was low-resolution. The anime video
+                # pipeline caps model input at 960x540, so x2 restores a 1080p
+                # result without the enormous per-frame 4K workload.
+                if input_width > 960 or input_height > 540:
+                    effective_scale = 2
+                self.base_upsampler.tile = 0
         selected_pipeline.UPSCALE = effective_scale
         selected_pipeline.DOWNSCALE = 8 if category == "anime" else 1
 
