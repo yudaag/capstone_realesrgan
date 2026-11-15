@@ -212,7 +212,10 @@ class Predictor(BasePredictor):
                 # result without the enormous per-frame 4K workload.
                 if input_width > 960 or input_height > 540:
                     effective_scale = 2
-                self.base_upsampler.tile = 0
+                # Video frames are capped at 960x540 by pipeline.py. Two to
+                # four 512px tiles avoid the 84-tile regression while keeping
+                # enough headroom on a T4 for the depth model.
+                self.base_upsampler.tile = 512
         selected_pipeline.UPSCALE = effective_scale
         selected_pipeline.DOWNSCALE = 8 if category == "anime" else 1
 

@@ -47,6 +47,7 @@ SCENE_CUT_THRESHOLD = 0.30
 USE_OPTICAL_FLOW = True
 VIDEO_MODEL_MAX_WIDTH = 960
 VIDEO_MODEL_MAX_HEIGHT = 540
+VIDEO_MAX_FPS = 30.0
 
 
 class TemporalState:
@@ -312,9 +313,10 @@ def process_video(video_path, save_path):
     capture = cv2.VideoCapture(video_path)
     if not capture.isOpened():
         raise ValueError("지원하지 않거나 손상된 동영상 파일입니다.")
-    fps = capture.get(cv2.CAP_PROP_FPS)
-    if not np.isfinite(fps) or fps <= 0:
-        fps = 30.0
+    source_fps = capture.get(cv2.CAP_PROP_FPS)
+    if not np.isfinite(source_fps) or source_fps <= 0:
+        source_fps = VIDEO_MAX_FPS
+    output_fps = min(source_fps, VIDEO_MAX_FPS)
     input_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     input_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     resize_ratio = min(
@@ -328,16 +330,31 @@ def process_video(video_path, save_path):
     os.makedirs(save_path, exist_ok=True)
     silent_path = os.path.join(save_path, "deepup_video_silent.mp4")
     output_path = os.path.join(save_path, "deepup_result.mp4")
-    writer = cv2.VideoWriter(silent_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, output_size)
+    writer = cv2.VideoWriter(
+        silent_path,
+        cv2.VideoWriter_fourcc(*"mp4v"),
+        output_fps,
+        output_size,
+    )
     if not writer.isOpened():
         capture.release()
         raise RuntimeError("결과 동영상 파일을 만들지 못했습니다.")
     state = TemporalState()
+    frame_index = 0
+    next_output_time = 0.0
     try:
         while True:
             ok, frame = capture.read()
             if not ok:
                 break
+            frame_time = frame_index / source_fps
+            frame_index += 1
+            # A 60fps screen recording contains twice as many model calls as
+            # the service needs. Select frames by timestamp so duration and
+            # playback speed remain unchanged at a maximum of 30fps.
+            if frame_time + 1e-9 < next_output_time:
+                continue
+            next_output_time += 1.0 / output_fps
             if frame.shape[1] != model_width or frame.shape[0] != model_height:
                 frame = cv2.resize(
                     frame,
