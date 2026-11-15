@@ -45,6 +45,8 @@ VIDEO_STRUCTURE_ALPHA = 0.70
 VIDEO_BLUR_ALPHA = 0.80
 SCENE_CUT_THRESHOLD = 0.30
 USE_OPTICAL_FLOW = True
+VIDEO_MODEL_MAX_WIDTH = 960
+VIDEO_MODEL_MAX_HEIGHT = 540
 
 
 class TemporalState:
@@ -315,7 +317,14 @@ def process_video(video_path, save_path):
         fps = 30.0
     input_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     input_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    output_size = (input_width * UPSCALE, input_height * UPSCALE)
+    resize_ratio = min(
+        1.0,
+        VIDEO_MODEL_MAX_WIDTH / max(input_width, 1),
+        VIDEO_MODEL_MAX_HEIGHT / max(input_height, 1),
+    )
+    model_width = max(2, int(input_width * resize_ratio) // 2 * 2)
+    model_height = max(2, int(input_height * resize_ratio) // 2 * 2)
+    output_size = (model_width * UPSCALE, model_height * UPSCALE)
     os.makedirs(save_path, exist_ok=True)
     silent_path = os.path.join(save_path, "deepup_video_silent.mp4")
     output_path = os.path.join(save_path, "deepup_result.mp4")
@@ -329,6 +338,12 @@ def process_video(video_path, save_path):
             ok, frame = capture.read()
             if not ok:
                 break
+            if frame.shape[1] != model_width or frame.shape[0] != model_height:
+                frame = cv2.resize(
+                    frame,
+                    (model_width, model_height),
+                    interpolation=cv2.INTER_AREA,
+                )
             writer.write(process_video_frame(frame, state))
     finally:
         capture.release()
