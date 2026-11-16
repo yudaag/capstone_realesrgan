@@ -345,8 +345,13 @@ def _mux_original_audio(original_path, silent_path, output_path):
     completed = subprocess.run(
         [
             "ffmpeg", "-y", "-i", silent_path, "-i", original_path,
-            "-map", "0:v:0", "-map", "1:a?", "-c:v", "copy", "-c:a", "aac",
-            "-shortest", output_path,
+            "-map", "0:v:0", "-map", "1:a?",
+            # OpenCV writes an MPEG-4 Part 2 intermediate (mp4v), which many
+            # browsers cannot play. Convert the final result to browser-safe
+            # H.264 and put MP4 metadata first for immediate web playback.
+            "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+            "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+            "-c:a", "aac", "-b:a", "192k", "-shortest", output_path,
         ],
         capture_output=True,
         text=True,
