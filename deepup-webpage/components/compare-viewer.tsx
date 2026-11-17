@@ -35,6 +35,11 @@ export function CompareViewer({ id }: { id: string }) {
     resultVideoRef.current?.pause();
     syncTime(true);
   }
+  useEffect(() => {
+    if (job?.media_type === 'video' && resultVideoRef.current) {
+      resultVideoRef.current.controls = true;
+    }
+  }, [job]);
   useEffect(() => { fetch(`/api/jobs/${id}`).then((r) => r.json()).then((data) => setJob(data.job || null)); }, [id]);
   if (!job) return <main className="grid min-h-screen place-items-center bg-black text-white">결과를 불러오는 중...</main>;
   return <main className="min-h-screen bg-black px-6 py-10 text-white">
