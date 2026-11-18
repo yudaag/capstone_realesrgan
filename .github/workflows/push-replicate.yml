@@ -18,16 +18,18 @@ jobs:
       - name: Download repository
         uses: actions/checkout@v4
 
-      - name: Install and login to Cog
-        uses: replicate/setup-cog@v2
-        with:
-          # v0.22.0 can produce a manifest rejected by the current Replicate
-          # registry after every layer has already been uploaded.
-          cog-version: "v0.23.1"
-          token: ${{ secrets.REPLICATE_CLI_AUTH_TOKEN }}
+      - name: Install Cog
+        run: |
+          sudo curl -fsSL -o /usr/local/bin/cog \
+            https://github.com/replicate/cog/releases/download/v0.23.1/cog_$(uname -s)_$(uname -m)
+          sudo chmod +x /usr/local/bin/cog
+          cog --version
+
+      - name: Login to Cog
+        env:
+          REPLICATE_CLI_AUTH_TOKEN: ${{ secrets.REPLICATE_CLI_AUTH_TOKEN }}
+        run: echo "$REPLICATE_CLI_AUTH_TOKEN" | cog login --token-stdin
 
       - name: Build and push model
         working-directory: deepup-model
-        # Cog generates the schema statically, so a hosted runner can
-        # build and publish this GPU model without launching it locally.
         run: cog push r8.im/yudaag/realesrgan_upscaling
