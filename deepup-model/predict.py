@@ -186,10 +186,9 @@ class Predictor(BasePredictor):
 
         effective_scale = scale
         if extension in selected_pipeline.VIDEO_EXTENSIONS:
-            # OpenCV's mp4v writer commonly fails before inference when a
-            # high-resolution input is enlarged to an 8K-class frame. Keep
-            # video output within a broadly supported 4K-sized pixel budget;
-            # still images continue to use the requested x2/x4 scale.
+            # Video inference uses an adaptive pixel budget. Small sources can
+            # still use x4, while larger sources are processed at a bounded
+            # model size and emitted at no more than 1080p.
             capture = cv2.VideoCapture(str(input_path))
             try:
                 input_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -198,20 +197,18 @@ class Predictor(BasePredictor):
                 capture.release()
             if input_width <= 0 or input_height <= 0:
                 raise ValueError("동영상 해상도를 확인하지 못했습니다.")
+
+            model_ratio = min(1.0, 960 / input_width, 540 / input_height)
+            model_width = max(2, int(input_width * model_ratio) // 2 * 2)
+            model_height = max(2, int(input_height * model_ratio) // 2 * 2)
             while effective_scale > 1 and (
-                input_width * effective_scale > 3840
-                or input_height * effective_scale > 2160
-                or input_width * input_height * effective_scale**2 > 8_294_400
+                model_width * effective_scale > 1920
+                or model_height * effective_scale > 1080
+                or model_width * model_height * effective_scale**2 > 2_073_600
             ):
                 effective_scale //= 2
 
             if category == "anime":
-                # Large but blurry source files were being expanded to 4K even
-                # though the useful detail was low-resolution. The anime video
-                # pipeline caps model input at 960x540, so x2 restores a 1080p
-                # result without the enormous per-frame 4K workload.
-                if input_width > 960 or input_height > 540:
-                    effective_scale = 2
                 # Video frames are capped at 960x540 by pipeline.py. Two to
                 # four 512px tiles avoid the 84-tile regression while keeping
                 # enough headroom on a T4 for the depth model.

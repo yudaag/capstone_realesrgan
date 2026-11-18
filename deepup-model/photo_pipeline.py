@@ -33,6 +33,8 @@ BLUR_SIGMA = 2.5
 MASK_SIGMA = 1.0
 POWER_EPS = 1e-4
 MODEL_SCALE = 4
+VIDEO_MODEL_MAX_WIDTH = 960
+VIDEO_MODEL_MAX_HEIGHT = 540
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
@@ -365,7 +367,17 @@ def process_video(video_path, save_path):
     total_frames = max(0, int(capture.get(cv2.CAP_PROP_FRAME_COUNT)))
     input_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     input_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    output_size = (input_width * UPSCALE, input_height * UPSCALE)
+    if input_width <= 0 or input_height <= 0:
+        capture.release()
+        raise ValueError("동영상 해상도를 확인하지 못했습니다.")
+    ratio = min(
+        1.0,
+        VIDEO_MODEL_MAX_WIDTH / input_width,
+        VIDEO_MODEL_MAX_HEIGHT / input_height,
+    )
+    model_width = max(2, int(input_width * ratio) // 2 * 2)
+    model_height = max(2, int(input_height * ratio) // 2 * 2)
+    output_size = (model_width * UPSCALE, model_height * UPSCALE)
     os.makedirs(save_path, exist_ok=True)
     silent_path = os.path.join(save_path, "deepup_video_silent.mp4")
     output_path = os.path.join(save_path, "deepup_result.mp4")
@@ -382,6 +394,12 @@ def process_video(video_path, save_path):
             ok, frame = capture.read()
             if not ok:
                 break
+            if frame.shape[:2] != (model_height, model_width):
+                frame = cv2.resize(
+                    frame,
+                    (model_width, model_height),
+                    interpolation=cv2.INTER_AREA,
+                )
             writer.write(process_core(frame, state=state)["final"])
             written_frames += 1
             if total_frames > 0:
