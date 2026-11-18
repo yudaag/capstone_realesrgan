@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const prediction = await startPrediction(body.objectKey, user ? 4 : 2, new URL(request.url).origin, category);
     await db().prepare(`INSERT INTO processing_jobs
       (id, user_id, guest_token, media_type, category, original_name, original_r2_key, replicate_prediction_id, status, progress, file_size, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'processing', 5, ?, ?)`)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'processing', 0, ?, ?)`)
       .bind(id, user?.id || null, user ? null : guestToken, body.mediaType, category, body.name, body.objectKey, prediction.id, Number(body.size || 0), user ? null : new Date(Date.now() + 86400000).toISOString()).run();
     return Response.json({ id, status: 'processing' });
   } catch (error) {

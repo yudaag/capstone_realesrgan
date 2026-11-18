@@ -1,6 +1,7 @@
 """Production anime image/video pipeline based on the supplied notebook."""
 
 import os
+import math
 import shutil
 import subprocess
 
@@ -369,6 +370,12 @@ def process_video(video_path, save_path):
     if not np.isfinite(source_fps) or source_fps <= 0:
         source_fps = VIDEO_MAX_FPS
     output_fps = min(source_fps, VIDEO_MAX_FPS)
+    source_frame_count = max(0, int(capture.get(cv2.CAP_PROP_FRAME_COUNT)))
+    total_output_frames = (
+        max(1, min(source_frame_count, math.ceil(source_frame_count * output_fps / source_fps)))
+        if source_frame_count > 0
+        else 0
+    )
     input_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     input_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     if input_width <= 0 or input_height <= 0:
@@ -399,6 +406,8 @@ def process_video(video_path, save_path):
     state = TemporalState()
     frame_index = written_frames = 0
     next_output_time = 0.0
+    last_reported_percent = -1
+    print(f"DEEPUP_STAGE frames total={total_output_frames}", flush=True)
     try:
         while True:
             ok, frame = capture.read()
@@ -417,12 +426,18 @@ def process_video(video_path, save_path):
                 )
             writer.write(process_core(frame, state=state)["final"])
             written_frames += 1
+            if total_output_frames > 0:
+                percent = min(100, int(written_frames * 100 / total_output_frames))
+                if percent != last_reported_percent:
+                    print(f"DEEPUP_PROGRESS {written_frames}/{total_output_frames}", flush=True)
+                    last_reported_percent = percent
     finally:
         capture.release()
         writer.release()
 
     if written_frames == 0 or not os.path.isfile(silent_path):
         raise RuntimeError("처리할 수 있는 동영상 프레임이 없습니다.")
+    print("DEEPUP_STAGE encoding", flush=True)
     _mux_original_audio(video_path, silent_path, output_path)
     if not os.path.isfile(output_path) or os.path.getsize(output_path) == 0:
         raise RuntimeError("결과 동영상 파일을 만들지 못했습니다.")

@@ -362,6 +362,7 @@ def process_video(video_path, save_path):
     fps = capture.get(cv2.CAP_PROP_FPS)
     if not np.isfinite(fps) or fps <= 0:
         fps = 30.0
+    total_frames = max(0, int(capture.get(cv2.CAP_PROP_FRAME_COUNT)))
     input_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     input_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     output_size = (input_width * UPSCALE, input_height * UPSCALE)
@@ -373,15 +374,25 @@ def process_video(video_path, save_path):
         capture.release()
         raise RuntimeError("결과 동영상 파일을 만들지 못했습니다.")
     state = TemporalState()
+    written_frames = 0
+    last_reported_percent = -1
+    print(f"DEEPUP_STAGE frames total={total_frames}", flush=True)
     try:
         while True:
             ok, frame = capture.read()
             if not ok:
                 break
             writer.write(process_core(frame, state=state)["final"])
+            written_frames += 1
+            if total_frames > 0:
+                percent = min(100, int(written_frames * 100 / total_frames))
+                if percent != last_reported_percent:
+                    print(f"DEEPUP_PROGRESS {written_frames}/{total_frames}", flush=True)
+                    last_reported_percent = percent
     finally:
         capture.release()
         writer.release()
+    print("DEEPUP_STAGE encoding", flush=True)
     _mux_original_audio(video_path, silent_path, output_path)
     return output_path
 
