@@ -36,6 +36,14 @@ MODEL_SCALE = 4
 VIDEO_MODEL_MAX_WIDTH = 960
 VIDEO_MODEL_MAX_HEIGHT = 540
 
+# Video-only parameters from the landscape/animal Colab pipeline.
+VIDEO_DEPTH_RANGE_ALPHA = 0.95
+VIDEO_DEPTH_ALPHA = 0.80
+VIDEO_STRUCTURE_ALPHA = 0.70
+VIDEO_BLUR_ALPHA = 0.80
+SCENE_CUT_THRESHOLD = 0.30
+USE_OPTICAL_FLOW = True
+
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
 
@@ -46,6 +54,16 @@ class TemporalState:
         self.prev_depth = None
         self.prev_structure = None
         self.prev_blur = None
+        self.depth_low = None
+        self.depth_high = None
+
+    def reset(self):
+        self.prev_frame = None
+        self.prev_depth = None
+        self.prev_structure = None
+        self.prev_blur = None
+        self.depth_low = None
+        self.depth_high = None
 
 
 def configure_models(depth_processor, loaded_depth_model, torch_device, proposed_model):
@@ -73,7 +91,7 @@ def _check_finite(name, tensor):
         raise RuntimeError(f"[{name}] NaN/Inf detected")
 
 
-def depth_map_from_lr(lr, out_size):
+def depth_map_from_lr(lr, out_size, state=None):
     pil_images = []
     lr_cpu = lr.detach().float().cpu().clamp(0.0, 1.0)
     for image in lr_cpu:
@@ -105,8 +123,28 @@ def depth_map_from_lr(lr, out_size):
             _check_finite("depth_raw", predicted)
 
             flat = predicted.flatten(1)
-            low = torch.quantile(flat, 0.02, dim=1).view(-1, 1, 1, 1)
-            high = torch.quantile(flat, 0.98, dim=1).view(-1, 1, 1, 1)
+            current_low = torch.quantile(flat, 0.02, dim=1).view(-1, 1, 1, 1)
+            current_high = torch.quantile(flat, 0.98, dim=1).view(-1, 1, 1, 1)
+            if state is None:
+                low = current_low
+                high = current_high
+            else:
+                current_low_value = float(current_low.item())
+                current_high_value = float(current_high.item())
+                if state.depth_low is None:
+                    state.depth_low = current_low_value
+                    state.depth_high = current_high_value
+                else:
+                    state.depth_low = (
+                        VIDEO_DEPTH_RANGE_ALPHA * state.depth_low
+                        + (1.0 - VIDEO_DEPTH_RANGE_ALPHA) * current_low_value
+                    )
+                    state.depth_high = (
+                        VIDEO_DEPTH_RANGE_ALPHA * state.depth_high
+                        + (1.0 - VIDEO_DEPTH_RANGE_ALPHA) * current_high_value
+                    )
+                low = torch.full_like(current_low, state.depth_low)
+                high = torch.full_like(current_high, state.depth_high)
             depth = ((predicted - low) / (high - low).clamp_min(1e-6)).clamp(0.0, 1.0)
             _check_finite("depth_norm", depth)
     return depth
@@ -158,7 +196,7 @@ def make_residual_structure_map_torch(
     return residual
 
 
-def proposed_forward(model, lr, return_maps=False):
+def proposed_forward(model, lr, return_maps=False, temporal_state=None):
     amp_enabled = device.type == "cuda"
     with torch.amp.autocast(device_type="cuda", enabled=amp_enabled):
         image_sr = model(lr)
@@ -168,7 +206,7 @@ def proposed_forward(model, lr, return_maps=False):
     lanczos = F.interpolate(
         lr.float(), scale_factor=MODEL_SCALE, mode="bicubic", align_corners=False
     )
-    depth = depth_map_from_lr(lr, image_sr.shape[-2:]).to(
+    depth = depth_map_from_lr(lr, image_sr.shape[-2:], state=temporal_state).to(
         device=image_sr.device, dtype=torch.float32
     )
     edge = make_edge_structure_map_torch(lanczos, blur_sigma=1.5)
@@ -234,14 +272,69 @@ def _as_map(tensor):
     return tensor[0, 0].detach().float().cpu().numpy().astype(np.float32)
 
 
+def detect_scene_cut(previous_frame, current_frame):
+    if previous_frame is None:
+        return False
+    previous_small = cv2.resize(previous_frame, (64, 64), interpolation=cv2.INTER_AREA)
+    current_small = cv2.resize(current_frame, (64, 64), interpolation=cv2.INTER_AREA)
+    previous_hsv = cv2.cvtColor(previous_small, cv2.COLOR_BGR2HSV)
+    current_hsv = cv2.cvtColor(current_small, cv2.COLOR_BGR2HSV)
+    previous_hist = cv2.calcHist([previous_hsv], [0, 1], None, [32, 32], [0, 180, 0, 256])
+    current_hist = cv2.calcHist([current_hsv], [0, 1], None, [32, 32], [0, 180, 0, 256])
+    cv2.normalize(previous_hist, previous_hist)
+    cv2.normalize(current_hist, current_hist)
+    distance = cv2.compareHist(previous_hist, current_hist, cv2.HISTCMP_BHATTACHARYYA)
+    return distance > SCENE_CUT_THRESHOLD
+
+
+def calculate_backward_flow(previous_frame, current_frame, output_size):
+    output_width, output_height = output_size
+    previous_gray = cv2.cvtColor(previous_frame, cv2.COLOR_BGR2GRAY)
+    current_gray = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
+    flow = cv2.calcOpticalFlowFarneback(
+        current_gray, previous_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0
+    )
+    flow = cv2.resize(flow, (output_width, output_height), interpolation=cv2.INTER_LINEAR)
+    flow[..., 0] *= output_width / previous_frame.shape[1]
+    flow[..., 1] *= output_height / previous_frame.shape[0]
+    return flow
+
+
+def warp_previous_map(previous_map, flow):
+    height, width = previous_map.shape[:2]
+    grid_x, grid_y = np.meshgrid(
+        np.arange(width, dtype=np.float32),
+        np.arange(height, dtype=np.float32),
+    )
+    return cv2.remap(
+        previous_map.astype(np.float32),
+        grid_x + flow[..., 0],
+        grid_y + flow[..., 1],
+        interpolation=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_REPLICATE,
+    )
+
+
+def temporal_blend(current, previous, alpha):
+    if previous is None:
+        return current.copy()
+    return alpha * previous + (1.0 - alpha) * current
+
+
 def process_core(image_bgr, state=None):
+    if state is not None and detect_scene_cut(state.prev_frame, image_bgr):
+        state.reset()
+
+    previous_frame = state.prev_frame if state is not None else None
     rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
     lr = torch.from_numpy(
         np.ascontiguousarray(rgb.transpose(2, 0, 1))
     ).unsqueeze(0).to(device=device, dtype=torch.float32) / 255.0
 
     with torch.inference_mode():
-        proposed, maps = proposed_forward(sr_model, lr, return_maps=True)
+        proposed, maps = proposed_forward(
+            sr_model, lr, return_maps=True, temporal_state=state
+        )
 
         # The trained network is native x4. Keep the notebook path untouched
         # for x4, and only resize its completed tensors when the API requests x2.
@@ -279,12 +372,30 @@ def process_core(image_bgr, state=None):
     if state is None:
         final = _as_bgr(proposed)
     else:
-        if state.prev_depth is not None and state.prev_depth.shape == depth.shape:
-            depth = 0.80 * depth + 0.20 * state.prev_depth
-        if state.prev_structure is not None and state.prev_structure.shape == structure.shape:
-            structure = 0.70 * structure + 0.30 * state.prev_structure
-        if state.prev_blur is not None and state.prev_blur.shape == blur.shape:
-            blur = 0.80 * blur + 0.20 * state.prev_blur
+        previous_depth = state.prev_depth
+        previous_structure = state.prev_structure
+        previous_blur = state.prev_blur
+        if USE_OPTICAL_FLOW and previous_frame is not None:
+            flow = calculate_backward_flow(
+                previous_frame,
+                image_bgr,
+                (depth.shape[1], depth.shape[0]),
+            )
+            if previous_depth is not None and previous_depth.shape == depth.shape:
+                previous_depth = warp_previous_map(previous_depth, flow)
+            if previous_structure is not None and previous_structure.shape == structure.shape:
+                previous_structure = warp_previous_map(previous_structure, flow)
+            if previous_blur is not None and previous_blur.shape == blur.shape:
+                previous_blur = warp_previous_map(previous_blur, flow)
+
+        if previous_depth is not None and previous_depth.shape == depth.shape:
+            depth = temporal_blend(depth, previous_depth, VIDEO_DEPTH_ALPHA)
+        if previous_structure is not None and previous_structure.shape == structure.shape:
+            structure = temporal_blend(
+                structure, previous_structure, VIDEO_STRUCTURE_ALPHA
+            )
+        if previous_blur is not None and previous_blur.shape == blur.shape:
+            blur = temporal_blend(blur, previous_blur, VIDEO_BLUR_ALPHA)
         state.prev_frame = image_bgr.copy()
         state.prev_depth = depth.copy()
         state.prev_structure = structure.copy()
