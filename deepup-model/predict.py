@@ -206,7 +206,7 @@ class Predictor(BasePredictor):
                 or model_height * effective_scale > 1080
                 or model_width * model_height * effective_scale**2 > 2_073_600
             ):
-                effective_scale //= 2
+                break  # Keep video output at the requested x4 scale.
 
             if category == "anime":
                 # Video frames are capped at 960x540 by pipeline.py. Two to
